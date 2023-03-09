@@ -1,14 +1,45 @@
-# Welcome to your CDK TypeScript project
+---
+---
 
-This is a blank project for CDK development with TypeScript.
+## Introduction
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## Troubleshooting
 
-## Useful commands
+- Ensure that the role for deploying CDK stack is choosend as an admin in lakeformation
+- Goto the LakeFormation console and select the CDK deploy role to be an admin
+- Database and table has different set of permissions
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `cdk deploy`      deploy this stack to your default AWS account/region
-* `cdk diff`        compare deployed stack with current state
-* `cdk synth`       emits the synthesized CloudFormation template
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lakeformation:GetDataAccess",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:SearchTables",
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:GetPartitions",
+        "lakeformation:GetResourceLFTags",
+        "lakeformation:ListLFTags",
+        "lakeformation:GetLFTag",
+        "lakeformation:SearchTablesByLFTags",
+        "lakeformation:SearchDatabasesByLFTags",
+        "athena:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:*"],
+      "Resource": [
+        "arn:aws:s3:::haimtran-codepipeline-artifact",
+        "arn:aws:s3:::haimtran-codepipeline-artifact/*"
+      ]
+    }
+  ]
+}
+```
