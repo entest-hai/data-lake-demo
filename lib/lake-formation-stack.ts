@@ -12,11 +12,13 @@ interface LakeFormationProps extends StackProps {
 }
 
 export class LakeFormationStack extends Stack {
+  public readonly lakeCdkAmin: aws_lakeformation.CfnDataLakeSettings;
+
   constructor(scope: Construct, id: string, props: LakeFormationProps) {
     super(scope, id, props);
 
     // lake formation setting admin
-    new aws_lakeformation.CfnDataLakeSettings(
+    this.lakeCdkAmin = new aws_lakeformation.CfnDataLakeSettings(
       this,
       "LakeFormationAdminSetting",
       {
@@ -32,21 +34,37 @@ export class LakeFormationStack extends Stack {
     );
 
     // lake formation register location (s3)
-    new aws_lakeformation.CfnResource(this, "RegisterDataLakeFormation", {
-      resourceArn: props.registerBucketData,
-      // role which lake formation access s3
-      // roleArn: "",
-      // use AWSServiceRoleForLakeFormationDataAccess role
-      useServiceLinkedRole: true,
-    });
+    const registerData = new aws_lakeformation.CfnResource(
+      this,
+      "RegisterDataLakeFormation",
+      {
+        resourceArn: props.registerBucketData,
+        // role which lake formation access s3
+        // roleArn: "",
+        // use AWSServiceRoleForLakeFormationDataAccess role
+        useServiceLinkedRole: true,
+      }
+    );
+
+    registerData.addDependency(this.lakeCdkAmin);
+
+    // athena workgroup: setup same athena query result prefix for all users
   }
 
-  public grantGlueRole(roleArn: string, bucketPrefix: string) {
-    console.log(roleArn);
-
-    new aws_lakeformation.CfnPrincipalPermissions(
+  public grantGlueRole({
+    pipelineName,
+    roleArn,
+    bucketPrefix,
+    locationBucket,
+  }: {
+    pipelineName: string;
+    roleArn: string;
+    bucketPrefix: string;
+    locationBucket: string;
+  }) {
+    const permision = new aws_lakeformation.CfnPrincipalPermissions(
       this,
-      `${roleArn}-GlueWriteCatalog`,
+      `GlueWriteCatalog-${pipelineName}`,
       {
         permissions: ["DATA_LOCATION_ACCESS"],
         permissionsWithGrantOption: ["DATA_LOCATION_ACCESS"],
@@ -56,11 +74,13 @@ export class LakeFormationStack extends Stack {
         resource: {
           dataLocation: {
             catalogId: this.account,
-            resourceArn: bucketPrefix,
+            resourceArn: `arn:aws:s3:::${locationBucket}/${bucketPrefix}`,
           },
         },
       }
     );
+
+    permision.addDependency(this.lakeCdkAmin);
   }
 
   public grantDataAnalyst({
@@ -72,9 +92,9 @@ export class LakeFormationStack extends Stack {
     databasePermissions: string[];
     databaseName: string;
   }) {
-    new aws_lakeformation.CfnPrincipalPermissions(
+    const permission = new aws_lakeformation.CfnPrincipalPermissions(
       this,
-      `${userArn}-UserReadCatalog`,
+      `UserReadCatalog-${userArn}`,
       {
         permissions: databasePermissions,
         permissionsWithGrantOption: databasePermissions,
@@ -89,5 +109,6 @@ export class LakeFormationStack extends Stack {
         },
       }
     );
+    permission.addDependency(this.lakeCdkAmin);
   }
 }

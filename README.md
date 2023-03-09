@@ -89,6 +89,12 @@ new aws_lakeformation.CfnPrincipalPermissions(this, `GlueWriteCatalog-1`, {
 });
 ```
 
+## Athena Workgroup
+
+It is possible to use workgroup to set up the same athena query result for all users.
+
+[here](https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings.html)
+
 ## Secrete Manager
 
 How to use secret manager in CDK to create password for an IAM user.
@@ -105,14 +111,10 @@ const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
 });
 ```
 
-## Athena Workgroup
-
-It is possible to use workgroup to set up the same athena query result for all users.
-
-[here](https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings.html)
-
 ## Troubleshooting
 
+- Cdk execution role must be admin first, the delay, then deploy next stacks
+- Clean lake permission principales before deploy (double check already existed one)
 - Ensure that the role for deploying CDK stack is choosend as an admin in lakeformation
 - Goto the LakeFormation console and select the CDK deploy role to be an admin
 - Database and table has different set of permissions

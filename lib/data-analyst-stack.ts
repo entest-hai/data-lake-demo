@@ -1,4 +1,4 @@
-import { aws_iam, SecretValue, Stack, StackProps } from "aws-cdk-lib";
+import { aws_iam, aws_secretsmanager, Stack, StackProps } from "aws-cdk-lib";
 import { Effect } from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
 
@@ -13,11 +13,21 @@ export class DataAnalystStack extends Stack {
   constructor(scope: Construct, id: string, props: DataAnalystProps) {
     super(scope, id, props);
 
+    // const secret = new aws_secretsmanager.Secret(this, "SecreteStoreUserPass", {
+    //   generateSecretString: {
+    //     secretStringTemplate: JSON.stringify({ username: "DataAnalystDemo" }),
+    //     generateStringKey: "password",
+    //   },
+    // });
+
     // create an iam user for data analyst (da)
-    const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
-      userName: "DataAnalystDemo",
-      // password: SecretValue.unsafePlainText("Demo@2023"),
-      password: SecretValue.secretsManager("DataAnalysDemoPassword"),
+    const daUser = new aws_iam.User(this, `${props.userName}-IAMUser`, {
+      userName: props.userName,
+      password: aws_secretsmanager.Secret.fromSecretNameV2(
+        this,
+        `${props.userName}-password`,
+        "DataAnalystDemoPassword"
+      ).secretValueFromJson("DataAnalystDemoPassword"),
       passwordResetRequired: false,
     });
 
