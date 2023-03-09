@@ -1,4 +1,9 @@
 ---
+title: Getting Started with Lake Formation
+description: getting started with lake formation
+author: haimtran
+publishedDate: 03/08/2022
+date: 2022-03-08
 ---
 
 ## Introduction
