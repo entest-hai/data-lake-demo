@@ -39,16 +39,12 @@ export class LakeFormationStack extends Stack {
       "RegisterDataLakeFormation",
       {
         resourceArn: props.registerBucketData,
-        // role which lake formation access s3
-        // roleArn: "",
         // use AWSServiceRoleForLakeFormationDataAccess role
         useServiceLinkedRole: true,
       }
     );
 
     registerData.addDependency(this.lakeCdkAmin);
-
-    // athena workgroup: setup same athena query result prefix for all users
   }
 
   public grantGlueRole({

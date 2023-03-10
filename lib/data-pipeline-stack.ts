@@ -1,13 +1,21 @@
-import { aws_glue, aws_iam, Stack, StackProps } from "aws-cdk-lib";
+import {
+  aws_glue,
+  aws_iam,
+  aws_lakeformation,
+  Stack,
+  StackProps,
+} from "aws-cdk-lib";
 import { Effect } from "aws-cdk-lib/aws-iam";
 import { Asset } from "aws-cdk-lib/aws-s3-assets";
 import { Construct } from "constructs";
 import * as path from "path";
 
 interface DataPipelineProps extends StackProps {
+  sourceBucket: string;
+  sourceBucketPrefixes: string[];
+  lakeBucket: string;
+  lakeBucketPrefixes: string[];
   pipelineName: string;
-  soureBucket: string;
-  soureBucketPrefixes: string[];
 }
 
 export class GlueWorkFlowStack extends Stack {
@@ -39,18 +47,6 @@ export class GlueWorkFlowStack extends Stack {
       )
     );
 
-    // where it crawl data
-    role.addToPolicy(
-      new aws_iam.PolicyStatement({
-        effect: Effect.ALLOW,
-        actions: ["s3:ListObject", "s3:GetObject"],
-        resources: [
-          `arn:aws:s3:::${props.soureBucket}`,
-          `arn:aws:s3:::${props.soureBucket}/*`,
-        ],
-      })
-    );
-
     role.addToPolicy(
       new aws_iam.PolicyStatement({
         effect: Effect.ALLOW,
@@ -61,16 +57,39 @@ export class GlueWorkFlowStack extends Stack {
 
     pythonScriptPath.grantRead(role);
 
+    // role for glue to read source data if not registered with lake
+    props.sourceBucketPrefixes.map((prefix) => {
+      role.addToPolicy(
+        new aws_iam.PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ["s3:GetObject", "s3:ListObject"],
+          resources: [`arn:aws:s3:::${props.sourceBucket}/${prefix}/*`],
+        })
+      );
+    });
+
+    // hot fix so pyspark job can write transformed data
+    role.addToPolicy(
+      new aws_iam.PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["s3:GetObject", "s3:PutObject", "s3:ListObject"],
+        resources: [
+          `arn:aws:s3:::${props.lakeBucket}/${props.lakeBucketPrefixes[0]}/*`,
+        ],
+      })
+    );
+
     // glue workflow
     const workflow = new aws_glue.CfnWorkflow(this, "EtlWorkFlow", {
       name: "EtlWorkFlow",
       description: "demo",
     });
 
+    // source to craw
     var s3Targets: aws_glue.CfnCrawler.S3TargetProperty[] = [];
-    props.soureBucketPrefixes.map((prefix) => {
+    props.sourceBucketPrefixes.map((prefix) => {
       s3Targets.push({
-        path: `s3://${props.soureBucket}/${prefix}`,
+        path: `s3://${props.sourceBucket}/${prefix}`,
         sampleSize: 1,
       });
     });
@@ -86,6 +105,7 @@ export class GlueWorkFlowStack extends Stack {
       tablePrefix: "etl",
     });
 
+    // craw the transformed data
     const crawlerTransforedData = new aws_glue.CfnCrawler(
       this,
       "CrawTransformedData",
@@ -95,7 +115,7 @@ export class GlueWorkFlowStack extends Stack {
         targets: {
           s3Targets: [
             {
-              path: `s3://${props.soureBucket}/spark-output`,
+              path: `s3://${props.sourceBucket}/${props.lakeBucketPrefixes[0]}`,
               sampleSize: 1,
             },
           ],
@@ -193,6 +213,27 @@ export class GlueWorkFlowStack extends Stack {
         },
       }
     );
+
+    // grant data location permission
+    props.lakeBucketPrefixes.map((prefix) => {
+      new aws_lakeformation.CfnPrincipalPermissions(
+        this,
+        `GrantLocationPermission-${prefix}`,
+        {
+          permissions: ["DATA_LOCATION_ACCESS"],
+          permissionsWithGrantOption: ["DATA_LOCATION_ACCESS"],
+          principal: {
+            dataLakePrincipalIdentifier: role.roleArn,
+          },
+          resource: {
+            dataLocation: {
+              catalogId: this.account,
+              resourceArn: `arn:aws:s3:::${props.lakeBucket}/${prefix}`,
+            },
+          },
+        }
+      );
+    });
 
     trigger.addDependency(crawler);
     triggerEtl.addDependency(job);
