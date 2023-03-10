@@ -1,13 +1,14 @@
 import { App } from "aws-cdk-lib";
 import { DataAnalystStack } from "../lib/data-analyst-stack";
 import { LakeFormationStack } from "../lib/lake-formation-stack";
+import { DatabasePermission } from "../lib/permission-type";
 import { config } from "../config";
 import { GlueWorkFlowStack } from "../lib/data-pipeline-stack";
 
 const app = new App();
 
 new DataAnalystStack(app, "DataAnalystStack", {
-  userName: "DataAnalystcdk",
+  userName: config.dataAnalystName,
   athenaResultBucketArn: config.athenaResultBucketArn,
   env: {
     region: "us-east-1",
@@ -16,7 +17,7 @@ new DataAnalystStack(app, "DataAnalystStack", {
 });
 
 new DataAnalystStack(app, "DataScientistStack", {
-  userName: "DataScientist",
+  userName: config.dataScientistName,
   athenaResultBucketArn: config.athenaResultBucketArn,
   env: {
     region: "us-east-1",
@@ -42,14 +43,14 @@ const etl = new GlueWorkFlowStack(app, "EtlWorkFlow", {
 });
 
 // grant data analyst
-// lakeFormation.grantDataAnalyst({
-//   userArn: config.dataAnalystArn,
-//   databasePermissions: [DatabasePermission.All],
-//   databaseName: "default",
-// });
+lakeFormation.grantDataAnalyst({
+  userArn: config.dataAnalystArn,
+  databasePermissions: [DatabasePermission.All],
+  databaseName: "default",
+});
 
-// lakeFormation.grantDataAnalyst({
-//   userArn: config.dataScientistArn,
-//   databasePermissions: [DatabasePermission.All],
-//   databaseName: "default",
-// });
+lakeFormation.grantDataAnalyst({
+  userArn: config.dataScientistArn,
+  databasePermissions: [DatabasePermission.All],
+  databaseName: "default",
+});
