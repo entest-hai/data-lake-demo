@@ -6,6 +6,7 @@ test/
 **config.json 
 **config.js 
 **config*
+lambda/
 
 # CDK asset staging directory
 .cdk.staging
