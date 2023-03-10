@@ -1,13 +1,8 @@
-import {
-  aws_glue,
-  aws_iam,
-  aws_lakeformation,
-  Stack,
-  StackProps,
-} from "aws-cdk-lib";
+import { aws_glue, aws_iam, Stack, StackProps } from "aws-cdk-lib";
 import { Effect } from "aws-cdk-lib/aws-iam";
+import { Asset } from "aws-cdk-lib/aws-s3-assets";
 import { Construct } from "constructs";
-import { DataLocationPermission } from "./permission-type";
+import * as path from "path";
 
 interface DataPipelineProps extends StackProps {
   pipelineName: string;
@@ -15,15 +10,20 @@ interface DataPipelineProps extends StackProps {
   soureBucketPrefixes: string[];
 }
 
-export class DataPipelineStack extends Stack {
-  public readonly dataPipelineGlueRole: string;
+export class GlueWorkFlowStack extends Stack {
+  public readonly glueRole: aws_iam.ArnPrincipal;
 
   constructor(scope: Construct, id: string, props: DataPipelineProps) {
     super(scope, id, props);
 
-    // glue crawler: load raw data
-    const role = new aws_iam.Role(this, "RoleForCrawler-1", {
-      roleName: "RoleForCrawler-1",
+    // python script path
+    const pythonScriptPath = new Asset(this, "etl-spark-script", {
+      path: path.join(__dirname, "./../script/spark_transform.py"),
+    });
+
+    // glue role
+    const role = new aws_iam.Role(this, "GlueRoleForEtlWorkFlow", {
+      roleName: "GlueRoleForEtlWorkFlow",
       assumedBy: new aws_iam.ServicePrincipal("glue.amazonaws.com"),
     });
 
@@ -39,10 +39,11 @@ export class DataPipelineStack extends Stack {
       )
     );
 
+    // where it crawl data
     role.addToPolicy(
       new aws_iam.PolicyStatement({
         effect: Effect.ALLOW,
-        actions: ["s3:ListObject", "s3:GetObject", "s3:PutObject"],
+        actions: ["s3:ListObject", "s3:GetObject"],
         resources: [
           `arn:aws:s3:::${props.soureBucket}`,
           `arn:aws:s3:::${props.soureBucket}/*`,
@@ -50,7 +51,22 @@ export class DataPipelineStack extends Stack {
       })
     );
 
-    // lake formation allow write to catalog
+    role.addToPolicy(
+      new aws_iam.PolicyStatement({
+        effect: Effect.ALLOW,
+        actions: ["lakeformation:GetDataAccess"],
+        resources: ["*"],
+      })
+    );
+
+    pythonScriptPath.grantRead(role);
+
+    // glue workflow
+    const workflow = new aws_glue.CfnWorkflow(this, "EtlWorkFlow", {
+      name: "EtlWorkFlow",
+      description: "demo",
+    });
+
     var s3Targets: aws_glue.CfnCrawler.S3TargetProperty[] = [];
     props.soureBucketPrefixes.map((prefix) => {
       s3Targets.push({
@@ -59,18 +75,130 @@ export class DataPipelineStack extends Stack {
       });
     });
 
-    // glue crawler: write to catalog
-    new aws_glue.CfnCrawler(this, "ExampleS3Crawler", {
-      name: "ExampleS3Crawler",
+    const crawler = new aws_glue.CfnCrawler(this, "CrawRawData", {
+      name: "CrawRawData",
       role: role.roleArn,
       targets: {
         s3Targets: s3Targets,
       },
       databaseName: "default",
       description: "craw a s3 prefix",
-      tablePrefix: "cdk-",
+      tablePrefix: "etl",
     });
 
-    this.dataPipelineGlueRole = role.roleArn;
+    const crawlerTransforedData = new aws_glue.CfnCrawler(
+      this,
+      "CrawTransformedData",
+      {
+        name: "CrawTransformedData",
+        role: role.roleArn,
+        targets: {
+          s3Targets: [
+            {
+              path: `s3://${props.soureBucket}/spark-output`,
+              sampleSize: 1,
+            },
+          ],
+        },
+        databaseName: "default",
+        description: "craw transformed data",
+        tablePrefix: "transformed",
+      }
+    );
+
+    // spark glue job
+    const job = new aws_glue.CfnJob(this, "TransforJobWithSpark", {
+      name: "TransformJobWithSpark",
+      command: {
+        name: "glueetl",
+        pythonVersion: "3",
+        scriptLocation: pythonScriptPath.s3ObjectUrl,
+      },
+      defaultArguments: {
+        "--name": "",
+      },
+      role: role.roleArn,
+      executionProperty: {
+        maxConcurrentRuns: 1,
+      },
+      glueVersion: "3.0",
+      maxRetries: 1,
+      timeout: 300,
+      maxCapacity: 1,
+    });
+
+    // trigger to craw raw data
+    const trigger = new aws_glue.CfnTrigger(this, "StartTriggerDemo", {
+      name: "StartTriggerDemo",
+      description: "start the etl job demo",
+      actions: [
+        {
+          crawlerName: crawler.name,
+          timeout: 300,
+        },
+      ],
+      workflowName: workflow.name,
+      type: "ON_DEMAND",
+    });
+
+    // trigger transform etl job
+    const triggerEtl = new aws_glue.CfnTrigger(this, "TriggerTransformJob", {
+      name: "TriggerTransformJob",
+      description: "trigger etl transform",
+      actions: [
+        {
+          jobName: job.name,
+          timeout: 300,
+        },
+      ],
+      workflowName: workflow.name,
+      type: "CONDITIONAL",
+      //true: when working with conditional and schedule
+      startOnCreation: true,
+      predicate: {
+        conditions: [
+          {
+            logicalOperator: "EQUALS",
+            crawlState: "SUCCEEDED",
+            crawlerName: crawler.name,
+          },
+        ],
+        // logical: "ANY",
+      },
+    });
+
+    //
+    const triggerTransformedCrawler = new aws_glue.CfnTrigger(
+      this,
+      "TriggerTransformedCrawler",
+      {
+        name: "TriggerTransformedCrawler",
+        actions: [
+          {
+            crawlerName: crawlerTransforedData.name,
+            timeout: 300,
+          },
+        ],
+        workflowName: workflow.name,
+        type: "CONDITIONAL",
+        startOnCreation: true,
+        predicate: {
+          conditions: [
+            {
+              logicalOperator: "EQUALS",
+              state: "SUCCEEDED",
+              jobName: job.name,
+            },
+          ],
+        },
+      }
+    );
+
+    trigger.addDependency(crawler);
+    triggerEtl.addDependency(job);
+    triggerEtl.addDependency(crawler);
+    triggerTransformedCrawler.addDependency(crawlerTransforedData);
+
+    this.glueRole = new aws_iam.ArnPrincipal(role.roleArn);
   }
 }
