@@ -89,7 +89,7 @@ new aws_lakeformation.CfnPrincipalPermissions(this, `GlueWriteCatalog-1`, {
 });
 ```
 
-## ETL Pipeline
+## ETL Pipeline S3 to Lake
 
 - Use Glue workflow to build a pipeline
 - Use the interactive session notebook to depvelop pyspark code
@@ -409,6 +409,170 @@ const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
     }
   ]
 }
+```
+
+## ETL Pipeline RDS to Lake
+
+ect script 
+```ts 
+const etlScript = new aws_s3_assets.Asset(this, "EtlScriptRdsToLakeDemo", {
+  path: path.join(__dirname, "./../script/etl_rds_to_lake.py"),
+});
+
+```
+
+JDBC connection 
+
+```ts 
+const connection = new aws_glue.CfnConnection(this, "RdsConnectionDemo", {
+  catalogId: this.account,
+  connectionInput: {
+    connectionType: "JDBC",
+    description: "connect to rds",
+    name: "RdsConnectionDemo",
+    connectionProperties: {
+      JDBC_CONNECTION_URL:
+        "jdbc:mysql://host-database/table",
+      USERNAME: "xxx",
+      PASSWORD: "xxx",
+    },
+    physicalConnectionRequirements: {
+      availabilityZone: "xxx",
+      securityGroupIdList: ["xxx"],
+      subnetId: "xxx",
+    },
+  },
+});
+```
+
+create a worflow trigger => crawlRDS => trigger => etlJob. First create a crawler to craw the RDS 
+
+```ts 
+ const crawler = new aws_glue.CfnCrawler(this, "CrawlRdsDemo", {
+   name: "CrawlRdsDemo",
+   role: role.roleArn,
+   targets: {
+     jdbcTargets: [
+       {
+         connectionName: connection.ref,
+         path: "sakila/articles",
+       },
+     ],
+   },
+   databaseName: "default",
+   tablePrefix: "RdsCrawl",
+ });
+
+```
+
+create an ETL job to transform the data and write to s3 lake 
+
+```ts 
+ const job = new aws_glue.CfnJob(this, "CrawRdsToLakeDemo", {
+   name: "CrawRdsToLakeDemo",
+   command: {
+     name: "glueetl",
+     pythonVersion: "3",
+     scriptLocation: etlScript.s3ObjectUrl,
+   },
+   defaultArguments: {
+     "--name": "",
+   },
+   role: role.roleArn,
+   executionProperty: {
+     maxConcurrentRuns: 10,
+   },
+   connections: {
+     connections: [connection.ref]
+   }, 
+   glueVersion: "3.0",
+   maxRetries: 0,
+   timeout: 300,
+   maxCapacity: 1,
+ });
+
+```
+
+create a workflow: trigger => craw rds => trigger => etl transform 
+
+```ts 
+ const workflow = new aws_glue.CfnWorkflow(
+   this, 
+   "EtlRdsToLakeWorkFlow",
+   {
+     name: "EtlRdsToLakeWorkFlow",
+     description: "rds to lake demo"
+   }
+ )
+```
+
+the starting trigger to start the workflow
+
+```ts 
+new aws_glue.CfnTrigger(
+  this, "TriggerStartCrawRds",
+  {
+    name: "TriggerStartCrawRds", 
+    description: "trigger start craw rds", 
+    actions: [
+      {
+        crawlerName: crawler.name, 
+        timeout: 420, 
+      },
+    ],
+    workflowName: workflow.name,
+    type: "ON_DEMAND"
+  }
+)
+```
+
+another trigger to start the etl job 
+
+```ts 
+new aws_glue.CfnTrigger(
+  this, 
+  "TriggerTransformRdsTable", 
+  {
+    name: "TriggerTransformRdsTable", 
+    description: "trigger transform rds table", 
+    actions: [
+      {
+        jobName: job.name, 
+        timeout: 420
+      }
+    ] ,
+    workflowName: workflow.name,
+    type: "CONDITIONAL",
+    startOnCreation: true, 
+    predicate: {
+     conditions: [
+       {
+         logicalOperator: "EQUALS",
+         crawlState: "SUCCEEDED", 
+         crawlerName: crawler.name
+       }
+     ] 
+    }
+  }
+)
+```
+
+## ETL PySpark 
+
+please double check that the Glue extended spark dataframe does not support, or does not understand SMALLINT and TINYINT
+
+```py 
+ApplyMapping_node2 = ApplyMapping.apply(
+    frame=MySQLtable_node1,
+    mappings=[
+        ("last_update", "timestamp", "last_update", "string"),
+        ("last_name", "string", "last_name", "string"),
+        ("actor_id", "int", "actor_id", "string"),
+        ("first_name", "string", "first_name", "string"),
+    ],
+    transformation_ctx="ApplyMapping_node2",
+)
+
 ```
 
 ## Reference
