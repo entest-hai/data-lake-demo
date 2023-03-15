@@ -49,7 +49,42 @@ new aws_lakeformation.CfnResource(this, "RegisterDataLakeFormation", {
 });
 ```
 
+## Create Data Analyst User 
+
+- create an IAM user for a data analyst 
+- attach AmazonAthenaFullAccess role the DA 
+- attach an inline policy allow writing query result to s3 
+
+```ts 
+const daUser = new aws_iam.User(this, `${props.userName}-IAMUser`, {
+  userName: props.userName,
+  password: aws_secretsmanager.Secret.fromSecretNameV2(
+    this,
+    `${props.userName}-password`,
+    "DataAnalystDemoPassword"
+  ).secretValueFromJson("DataAnalystDemoPassword"),
+  passwordResetRequired: false,
+});
+
+daUser.addManagedPolicy(
+  aws_iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonAthenaFullAccess")
+);
+
+// access athena result query in s3
+daUser.addToPolicy(
+  new aws_iam.PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ["s3:PutObject", "s3:GetObject"],
+    resources: [props.athenaResultBucketArn],
+  })
+);
+```
+
 ## Grant Database Permissions
+
+- grant an iam user (DA) to access database, table 
+- lakeformation privde temporary access for the DA to query data in S3 
+
 
 ```ts
 new aws_lakeformation.CfnPrincipalPermissions(
@@ -72,6 +107,8 @@ new aws_lakeformation.CfnPrincipalPermissions(
 ```
 
 ## Grant Data Location
+
+- grant glue role to write, create resource (databses catalog)
 
 ```ts
 new aws_lakeformation.CfnPrincipalPermissions(this, `GlueWriteCatalog-1`, {
@@ -559,7 +596,7 @@ new aws_glue.CfnTrigger(
 
 ## ETL PySpark 
 
-please double check that the Glue extended spark dataframe does not support, or does not understand SMALLINT and TINYINT
+Glue does not understand unsigned int from mysql 
 
 ```py 
 ApplyMapping_node2 = ApplyMapping.apply(
@@ -574,6 +611,20 @@ ApplyMapping_node2 = ApplyMapping.apply(
 )
 
 ```
+
+- option 1. use PySpark TypeStructure 
+
+```py 
+from pyspark.sql.types import *        
+customSchema = StructType([
+        StructField("a", IntegerType(), True),
+        StructField("b", LongType(), True),
+        StructField("c", DoubleType(), True)])
+df = spark.read.schema(customSchema).parquet("test.parquet")
+
+```
+
+- option 2. after load data from database to lake, use crawler again 
 
 ## Reference
 
