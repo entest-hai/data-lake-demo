@@ -67,8 +67,11 @@ new RdsPipelineStack(app, "RdsPipelineStack", {
   subnetId: config.subnetId,
   databaseName: config.databaseName,
   databasePath: config.databasePath,
+  destBucket: config.destBucket, 
   env: {
     region: 'us-east-1',
     account: process.env.CDK_ACCOUNT_DEFAUT
   }
 })
+
+

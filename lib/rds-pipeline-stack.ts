@@ -1,6 +1,7 @@
 import {
   aws_glue,
   aws_iam,
+  aws_lakeformation,
   aws_s3_assets,
   Stack,
   StackProps,
@@ -19,6 +20,7 @@ interface RdsPipelineProps extends StackProps {
   subnetId: string;
   databaseName: string;
   databasePath: string;
+  destBucket: string
 }
 
 export class RdsPipelineStack extends Stack {
@@ -45,6 +47,14 @@ export class RdsPipelineStack extends Stack {
         "CloudWatchAgentServerPolicy"
       )
     );
+
+    role.addToPolicy(
+      new aws_iam.PolicyStatement({
+        effect: Effect.ALLOW, 
+        actions: ["s3:GetObject", "s3:PutObject"], 
+        resources: [`arn:aws:s3:::${props.destBucket}/*`]
+      })
+    )
 
     role.addToPolicy(
       new aws_iam.PolicyStatement({
@@ -155,6 +165,25 @@ export class RdsPipelineStack extends Stack {
     });
 
     etlScript.grantRead(role);
+
+    // grant data location permission 
+    new aws_lakeformation.CfnPrincipalPermissions(
+      this, 
+      `{props.name}-GrantLocationPermission`,
+      {
+        permissions: ["DATA_LOCATION_ACCESS"], 
+        permissionsWithGrantOption: ["DATA_LOCATION_ACCESS"],
+        principal: {
+          dataLakePrincipalIdentifier: role.roleArn
+        }, 
+        resource: {
+          dataLocation: {
+            catalogId: this.account, 
+            resourceArn: `arn:aws:s3:::${props.destBucket}/*`
+          }
+        }
+      }
+    )
 
     startingTrigger.addDependency(workflow)
     etlTrigger.addDependency(workflow)

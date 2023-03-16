@@ -1,9 +1,10 @@
----
+--
 title: Getting Started with Lake Formation
 description: getting started with lake formation
 author: haimtran
 publishedDate: 03/08/2022
 date: 2022-03-08
+
 ---
 
 ## Introduction
@@ -16,6 +17,21 @@ This shows how to use lake formation to manage authorization to analyst and data
 - data location permissions
 - enroll a data analyst (read catalog and query)
 - enroll a data pipeline (write/create catalog)
+
+## LakeFormation Access Control
+
+It is essential to understand how lakeformation control access to data analysts and ETL (glue role).
+
+- register admin such as cdk role
+- register s3 data (lake)
+- grant permission to data analysts
+- grant permission to glue role
+
+To control which catalog table, column a data analyst can query, lakeformation grants data lake permssions to the DA, or role. Lakeformation will provide the DA temporary credentials to access data in S3 and corressponding tables so they can query data without directly setting IAM for the DA. At this moment, however, still need to setup the DA has write permission to athena query result location.
+
+To control a ETL pipeline can create catalog tables, lakeformation grants data location permissions to a glue role (ETL role). When a S3 bucket has been registered to the lakeformation, without the data location permission, no catalog tables can be created. However, still need to setup IAM so the ETL can read the source (S3, RDS connection, etc), and permission to write to destination in S3.
+
+To enable CDK role run the grant permissions, the CDK role should be registered as an admin role to lakeformation.
 
 ## Register Admin and Data
 
@@ -49,13 +65,13 @@ new aws_lakeformation.CfnResource(this, "RegisterDataLakeFormation", {
 });
 ```
 
-## Create Data Analyst User 
+## Create Data Analyst User
 
-- create an IAM user for a data analyst 
-- attach AmazonAthenaFullAccess role the DA 
-- attach an inline policy allow writing query result to s3 
+- create an IAM user for a data analyst
+- attach AmazonAthenaFullAccess role the DA
+- attach an inline policy allow writing query result to s3
 
-```ts 
+```ts
 const daUser = new aws_iam.User(this, `${props.userName}-IAMUser`, {
   userName: props.userName,
   password: aws_secretsmanager.Secret.fromSecretNameV2(
@@ -82,9 +98,8 @@ daUser.addToPolicy(
 
 ## Grant Database Permissions
 
-- grant an iam user (DA) to access database, table 
-- lakeformation privde temporary access for the DA to query data in S3 
-
+- grant an iam user (DA) to access database, table
+- lakeformation privde temporary access for the DA to query data in S3
 
 ```ts
 new aws_lakeformation.CfnPrincipalPermissions(
@@ -408,6 +423,241 @@ const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
 });
 ```
 
+## ETL Pipeline RDS to Lake
+
+configure glue role with permissions
+
+- read data source in S3, RDS
+- write to a destination in S3
+- lakeformation grant location permission to ETL can create catalog tables
+
+```ts
+const role = new aws_iam.Role(this, `${props.name}-RoleForGlueEtljob`, {
+  roleName: `${props.name}-RoleForGlueEtljob`,
+  assumedBy: new aws_iam.ServicePrincipal("glue.amazonaws.com"),
+});
+
+role.addManagedPolicy(
+  aws_iam.ManagedPolicy.fromAwsManagedPolicyName(
+    "service-role/AWSGlueServiceRole"
+  )
+);
+
+role.addManagedPolicy(
+  aws_iam.ManagedPolicy.fromAwsManagedPolicyName("CloudWatchAgentServerPolicy")
+);
+
+role.addToPolicy(
+  new aws_iam.PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ["s3:GetObject", "s3:PutObject"],
+    resources: [`arn:aws:s3:::${props.destBucket}/*`],
+  })
+);
+
+role.addToPolicy(
+  new aws_iam.PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ["lakeformation:GetDataAccess"],
+    resources: ["*"],
+  })
+);
+
+etlScript.grantRead(role);
+```
+
+ect script
+
+```ts
+const etlScript = new aws_s3_assets.Asset(this, "EtlScriptRdsToLakeDemo", {
+  path: path.join(__dirname, "./../script/etl_rds_to_lake.py"),
+});
+```
+
+JDBC connection
+
+```ts
+const connection = new aws_glue.CfnConnection(this, "RdsConnectionDemo", {
+  catalogId: this.account,
+  connectionInput: {
+    connectionType: "JDBC",
+    description: "connect to rds",
+    name: "RdsConnectionDemo",
+    connectionProperties: {
+      JDBC_CONNECTION_URL: "jdbc:mysql://host-database/table",
+      USERNAME: "xxx",
+      PASSWORD: "xxx",
+    },
+    physicalConnectionRequirements: {
+      availabilityZone: "xxx",
+      securityGroupIdList: ["xxx"],
+      subnetId: "xxx",
+    },
+  },
+});
+```
+
+create a worflow trigger => crawlRDS => trigger => etlJob. First create a crawler to craw the RDS
+
+```ts
+const crawler = new aws_glue.CfnCrawler(this, "CrawlRdsDemo", {
+  name: "CrawlRdsDemo",
+  role: role.roleArn,
+  targets: {
+    jdbcTargets: [
+      {
+        connectionName: connection.ref,
+        path: "sakila/articles",
+      },
+    ],
+  },
+  databaseName: "default",
+  tablePrefix: "RdsCrawl",
+});
+```
+
+create an ETL job to transform the data and write to s3 lake
+
+```ts
+const job = new aws_glue.CfnJob(this, "CrawRdsToLakeDemo", {
+  name: "CrawRdsToLakeDemo",
+  command: {
+    name: "glueetl",
+    pythonVersion: "3",
+    scriptLocation: etlScript.s3ObjectUrl,
+  },
+  defaultArguments: {
+    "--name": "",
+  },
+  role: role.roleArn,
+  executionProperty: {
+    maxConcurrentRuns: 10,
+  },
+  connections: {
+    connections: [connection.ref],
+  },
+  glueVersion: "3.0",
+  maxRetries: 0,
+  timeout: 300,
+  maxCapacity: 1,
+});
+```
+
+create a workflow: trigger => craw rds => trigger => etl transform
+
+```ts
+const workflow = new aws_glue.CfnWorkflow(this, "EtlRdsToLakeWorkFlow", {
+  name: "EtlRdsToLakeWorkFlow",
+  description: "rds to lake demo",
+});
+```
+
+the starting trigger to start the workflow
+
+```ts
+new aws_glue.CfnTrigger(this, "TriggerStartCrawRds", {
+  name: "TriggerStartCrawRds",
+  description: "trigger start craw rds",
+  actions: [
+    {
+      crawlerName: crawler.name,
+      timeout: 420,
+    },
+  ],
+  workflowName: workflow.name,
+  type: "ON_DEMAND",
+});
+```
+
+another trigger to start the etl job
+
+```ts
+new aws_glue.CfnTrigger(this, "TriggerTransformRdsTable", {
+  name: "TriggerTransformRdsTable",
+  description: "trigger transform rds table",
+  actions: [
+    {
+      jobName: job.name,
+      timeout: 420,
+    },
+  ],
+  workflowName: workflow.name,
+  type: "CONDITIONAL",
+  startOnCreation: true,
+  predicate: {
+    conditions: [
+      {
+        logicalOperator: "EQUALS",
+        crawlState: "SUCCEEDED",
+        crawlerName: crawler.name,
+      },
+    ],
+  },
+});
+```
+
+## ETL PySpark
+
+Glue does not understand unsigned int from mysql
+
+```py
+ApplyMapping_node2 = ApplyMapping.apply(
+    frame=MySQLtable_node1,
+    mappings=[
+        ("last_update", "timestamp", "last_update", "string"),
+        ("last_name", "string", "last_name", "string"),
+        ("actor_id", "int", "actor_id", "string"),
+        ("first_name", "string", "first_name", "string"),
+    ],
+    transformation_ctx="ApplyMapping_node2",
+)
+
+```
+
+- option 1. use PySpark TypeStructure
+
+```py
+from pyspark.sql.types import *
+customSchema = StructType([
+        StructField("a", IntegerType(), True),
+        StructField("b", LongType(), True),
+        StructField("c", DoubleType(), True)])
+df = spark.read.schema(customSchema).parquet("test.parquet")
+
+```
+
+- option 2. after load data from database to lake, use crawler again
+
+## Load Data to Database
+
+- launch an ec2 instance and connect with the database
+- double check the S3 endpoint RDS private subnet => S3
+
+```bash
+open port 3306 peer security group with database
+```
+
+install mariadb db client
+
+```bash
+sudo apt update
+sudo apt install mariadb-server
+```
+
+download sample sakila data
+
+```bash
+wget https://downloads.mysql.com/docs/sakila-db.zip .
+```
+
+load sakila data into the database
+
+```bash
+cdk sakila-db
+mysql --host=$host --username=admin --password=$pass -f < sakila-schema.sql
+mysql --host=$host --username=admin --password=$pass -f < sakila-data.sql
+```
+
 ## Troubleshooting
 
 - Cdk execution role must be admin first, the delay, then deploy next stacks
@@ -446,215 +696,6 @@ const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
     }
   ]
 }
-```
-
-## ETL Pipeline RDS to Lake
-
-ect script 
-```ts 
-const etlScript = new aws_s3_assets.Asset(this, "EtlScriptRdsToLakeDemo", {
-  path: path.join(__dirname, "./../script/etl_rds_to_lake.py"),
-});
-
-```
-
-JDBC connection 
-
-```ts 
-const connection = new aws_glue.CfnConnection(this, "RdsConnectionDemo", {
-  catalogId: this.account,
-  connectionInput: {
-    connectionType: "JDBC",
-    description: "connect to rds",
-    name: "RdsConnectionDemo",
-    connectionProperties: {
-      JDBC_CONNECTION_URL:
-        "jdbc:mysql://host-database/table",
-      USERNAME: "xxx",
-      PASSWORD: "xxx",
-    },
-    physicalConnectionRequirements: {
-      availabilityZone: "xxx",
-      securityGroupIdList: ["xxx"],
-      subnetId: "xxx",
-    },
-  },
-});
-```
-
-create a worflow trigger => crawlRDS => trigger => etlJob. First create a crawler to craw the RDS 
-
-```ts 
- const crawler = new aws_glue.CfnCrawler(this, "CrawlRdsDemo", {
-   name: "CrawlRdsDemo",
-   role: role.roleArn,
-   targets: {
-     jdbcTargets: [
-       {
-         connectionName: connection.ref,
-         path: "sakila/articles",
-       },
-     ],
-   },
-   databaseName: "default",
-   tablePrefix: "RdsCrawl",
- });
-
-```
-
-create an ETL job to transform the data and write to s3 lake 
-
-```ts 
- const job = new aws_glue.CfnJob(this, "CrawRdsToLakeDemo", {
-   name: "CrawRdsToLakeDemo",
-   command: {
-     name: "glueetl",
-     pythonVersion: "3",
-     scriptLocation: etlScript.s3ObjectUrl,
-   },
-   defaultArguments: {
-     "--name": "",
-   },
-   role: role.roleArn,
-   executionProperty: {
-     maxConcurrentRuns: 10,
-   },
-   connections: {
-     connections: [connection.ref]
-   }, 
-   glueVersion: "3.0",
-   maxRetries: 0,
-   timeout: 300,
-   maxCapacity: 1,
- });
-
-```
-
-create a workflow: trigger => craw rds => trigger => etl transform 
-
-```ts 
- const workflow = new aws_glue.CfnWorkflow(
-   this, 
-   "EtlRdsToLakeWorkFlow",
-   {
-     name: "EtlRdsToLakeWorkFlow",
-     description: "rds to lake demo"
-   }
- )
-```
-
-the starting trigger to start the workflow
-
-```ts 
-new aws_glue.CfnTrigger(
-  this, "TriggerStartCrawRds",
-  {
-    name: "TriggerStartCrawRds", 
-    description: "trigger start craw rds", 
-    actions: [
-      {
-        crawlerName: crawler.name, 
-        timeout: 420, 
-      },
-    ],
-    workflowName: workflow.name,
-    type: "ON_DEMAND"
-  }
-)
-```
-
-another trigger to start the etl job 
-
-```ts 
-new aws_glue.CfnTrigger(
-  this, 
-  "TriggerTransformRdsTable", 
-  {
-    name: "TriggerTransformRdsTable", 
-    description: "trigger transform rds table", 
-    actions: [
-      {
-        jobName: job.name, 
-        timeout: 420
-      }
-    ] ,
-    workflowName: workflow.name,
-    type: "CONDITIONAL",
-    startOnCreation: true, 
-    predicate: {
-     conditions: [
-       {
-         logicalOperator: "EQUALS",
-         crawlState: "SUCCEEDED", 
-         crawlerName: crawler.name
-       }
-     ] 
-    }
-  }
-)
-```
-
-## ETL PySpark 
-
-Glue does not understand unsigned int from mysql 
-
-```py 
-ApplyMapping_node2 = ApplyMapping.apply(
-    frame=MySQLtable_node1,
-    mappings=[
-        ("last_update", "timestamp", "last_update", "string"),
-        ("last_name", "string", "last_name", "string"),
-        ("actor_id", "int", "actor_id", "string"),
-        ("first_name", "string", "first_name", "string"),
-    ],
-    transformation_ctx="ApplyMapping_node2",
-)
-
-```
-
-- option 1. use PySpark TypeStructure 
-
-```py 
-from pyspark.sql.types import *        
-customSchema = StructType([
-        StructField("a", IntegerType(), True),
-        StructField("b", LongType(), True),
-        StructField("c", DoubleType(), True)])
-df = spark.read.schema(customSchema).parquet("test.parquet")
-
-```
-
-- option 2. after load data from database to lake, use crawler again 
-
-
-## Load Data to Database 
-
-- launch an ec2 instance and connect with the database 
-- double check the S3 endpoint RDS private subnet => S3 
-
-```bash 
-open port 3306 peer security group with database 
-```
-
-install mariadb db client 
-
-```bash 
-sudo apt update 
-sudo apt install mariadb-server
-```
-
-download sample sakila data 
-
-```bash 
-wget https://downloads.mysql.com/docs/sakila-db.zip . 
-```
-
-load sakila data into the database 
-
-```bash
-cdk sakila-db 
-mysql --host=$host --username=admin --password=$pass -f < sakila-schema.sql 
-mysql --host=$host --username=admin --password=$pass -f < sakila-data.sql 
 ```
 
 ## Reference
