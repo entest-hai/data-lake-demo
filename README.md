@@ -626,6 +626,37 @@ df = spark.read.schema(customSchema).parquet("test.parquet")
 
 - option 2. after load data from database to lake, use crawler again 
 
+
+## Load Data to Database 
+
+- launch an ec2 instance and connect with the database 
+- double check the S3 endpoint RDS private subnet => S3 
+
+```bash 
+open port 3306 peer security group with database 
+```
+
+install mariadb db client 
+
+```bash 
+sudo apt update 
+sudo apt install mariadb-server
+```
+
+download sample sakila data 
+
+```bash 
+wget https://downloads.mysql.com/docs/sakila-db.zip . 
+```
+
+load sakila data into the database 
+
+```bash
+cdk sakila-db 
+mysql --host=$host --username=admin --password=$pass -f < sakila-schema.sql 
+mysql --host=$host --username=admin --password=$pass -f < sakila-data.sql 
+```
+
 ## Reference
 
 - [underlying data access control in lake formation](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html#data-location-permissions)
