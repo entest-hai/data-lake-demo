@@ -4,6 +4,7 @@ import { LakeFormationStack } from "../lib/lake-formation-stack";
 import { DatabasePermission } from "../lib/permission-type";
 import { config } from "../config";
 import { GlueWorkFlowStack } from "../lib/data-pipeline-stack";
+import { RdsPipelineStack } from "../lib/rds-pipeline-stack";
 
 const app = new App();
 
@@ -30,7 +31,7 @@ const lakeFormation = new LakeFormationStack(app, "LakeFormationStack", {
 });
 
 // data pipeline
-const etl = new GlueWorkFlowStack(app, "EtlWorkFlow", {
+new GlueWorkFlowStack(app, "EtlWorkFlow", {
   pipelineName: "Etl",
   sourceBucket: config.soureBucket,
   lakeBucket: config.soureBucket,
@@ -54,3 +55,20 @@ lakeFormation.grantDataAnalyst({
   databasePermissions: [DatabasePermission.All],
   databaseName: "default",
 });
+
+// rds pipeline 
+new RdsPipelineStack(app, "RdsPipelineStack", {
+  name: "RDS",
+  jdbc: config.jdbc,
+  username: config.username,
+  password: config.password,
+  az: "us-east-1a",
+  securityGroupId: config.securityGroupId,
+  subnetId: config.subnetId,
+  databaseName: config.databaseName,
+  databasePath: config.databasePath,
+  env: {
+    region: 'us-east-1',
+    account: process.env.CDK_ACCOUNT_DEFAUT
+  }
+})
