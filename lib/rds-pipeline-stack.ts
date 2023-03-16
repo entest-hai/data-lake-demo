@@ -109,7 +109,7 @@ export class RdsPipelineStack extends Stack {
       },
       glueVersion: "3.0",
       maxRetries: 0,
-      timeout: 300,
+      timeout: 600,
       maxCapacity: 1,
     });
 
