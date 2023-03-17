@@ -7,6 +7,7 @@ import {
   StackProps,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import { CustomAthenaPrimaryWorkGroup } from "./athena-primary-workgroup";
 
 interface LakeFormationProps extends StackProps {
   registerBucketData: string;
@@ -47,27 +48,8 @@ export class LakeFormationStack extends Stack {
     );
 
     // athena query result location via workgroup
-    new aws_athena.CfnWorkGroup(this, "AthenaQueryResultLakeDemo", {
-      name: "demo",
-      description: "setup athena query result location",
-      workGroupConfiguration: {
-        // in number of byte - 100GB
-        bytesScannedCutoffPerQuery: 107374182400,
-        enforceWorkGroupConfiguration: false,
-        // engineVersion: {
-        //   effectiveEngineVersion: "",
-        //   selectedEngineVersion: "",
-        // },
-        publishCloudWatchMetricsEnabled: true,
-        requesterPaysEnabled: true,
-        resultConfiguration: {
-          // encryptionConfiguration: {
-          //   encryptionOption: "",
-          //   kmsKey: "",
-          // },
-          outputLocation: props.queryResultLocation,
-        },
-      },
+    new CustomAthenaPrimaryWorkGroup(this, "CustomAthenaPrimaryWorkGroup-1", {
+      queryResultLocation: props.queryResultLocation,
     });
 
     registerData.addDependency(this.lakeCdkAmin);
