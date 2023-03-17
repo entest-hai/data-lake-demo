@@ -28,6 +28,7 @@ new DataAnalystStack(app, "DataScientistStack", {
 
 const lakeFormation = new LakeFormationStack(app, "LakeFormationStack", {
   registerBucketData: config.registerBucketData,
+  queryResultLocation: config.queryResultLocation,
 });
 
 // data pipeline
@@ -43,20 +44,7 @@ new GlueWorkFlowStack(app, "EtlWorkFlow", {
   },
 });
 
-// grant data analyst
-lakeFormation.grantDataAnalyst({
-  userArn: config.dataAnalystArn,
-  databasePermissions: [DatabasePermission.All],
-  databaseName: "default",
-});
-
-lakeFormation.grantDataAnalyst({
-  userArn: config.dataScientistArn,
-  databasePermissions: [DatabasePermission.All],
-  databaseName: "default",
-});
-
-// rds pipeline 
+// rds pipeline
 new RdsPipelineStack(app, "RdsPipelineStack", {
   name: "RDS",
   jdbc: config.jdbc,
@@ -67,11 +55,22 @@ new RdsPipelineStack(app, "RdsPipelineStack", {
   subnetId: config.subnetId,
   databaseName: config.databaseName,
   databasePath: config.databasePath,
-  destBucket: config.destBucket, 
+  destBucket: config.destBucket,
   env: {
-    region: 'us-east-1',
-    account: process.env.CDK_ACCOUNT_DEFAUT
-  }
-})
+    region: "us-east-1",
+    account: process.env.CDK_ACCOUNT_DEFAUT,
+  },
+});
 
+// // grant data analyst
+// lakeFormation.grantDataAnalyst({
+//   userArn: config.dataAnalystArn,
+//   databasePermissions: [DatabasePermission.All],
+//   databaseName: "default",
+// });
 
+// lakeFormation.grantDataAnalyst({
+//   userArn: config.dataScientistArn,
+//   databasePermissions: [DatabasePermission.All],
+//   databaseName: "default",
+// });

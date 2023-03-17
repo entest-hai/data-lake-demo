@@ -1,4 +1,5 @@
 import {
+  aws_athena,
   aws_lakeformation,
   DefaultStackSynthesizer,
   Fn,
@@ -9,6 +10,7 @@ import { Construct } from "constructs";
 
 interface LakeFormationProps extends StackProps {
   registerBucketData: string;
+  queryResultLocation: string;
 }
 
 export class LakeFormationStack extends Stack {
@@ -43,6 +45,30 @@ export class LakeFormationStack extends Stack {
         useServiceLinkedRole: true,
       }
     );
+
+    // athena query result location via workgroup
+    new aws_athena.CfnWorkGroup(this, "AthenaQueryResultLakeDemo", {
+      name: "demo",
+      description: "setup athena query result location",
+      workGroupConfiguration: {
+        // in number of byte - 100GB
+        bytesScannedCutoffPerQuery: 107374182400,
+        enforceWorkGroupConfiguration: false,
+        // engineVersion: {
+        //   effectiveEngineVersion: "",
+        //   selectedEngineVersion: "",
+        // },
+        publishCloudWatchMetricsEnabled: true,
+        requesterPaysEnabled: true,
+        resultConfiguration: {
+          // encryptionConfiguration: {
+          //   encryptionOption: "",
+          //   kmsKey: "",
+          // },
+          outputLocation: props.queryResultLocation,
+        },
+      },
+    });
 
     registerData.addDependency(this.lakeCdkAmin);
   }
