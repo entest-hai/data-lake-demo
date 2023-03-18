@@ -10,7 +10,7 @@ import { Asset } from "aws-cdk-lib/aws-s3-assets";
 import { Construct } from "constructs";
 import * as path from "path";
 
-interface DataPipelineProps extends StackProps {
+interface GlueWorkFlowProps extends StackProps {
   sourceBucket: string;
   sourceBucketPrefixes: string[];
   lakeBucket: string;
@@ -21,7 +21,7 @@ interface DataPipelineProps extends StackProps {
 export class GlueWorkFlowStack extends Stack {
   public readonly glueRole: aws_iam.ArnPrincipal;
 
-  constructor(scope: Construct, id: string, props: DataPipelineProps) {
+  constructor(scope: Construct, id: string, props: GlueWorkFlowProps) {
     super(scope, id, props);
 
     // python script path

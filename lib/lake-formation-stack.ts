@@ -1,8 +1,9 @@
 import {
-  aws_athena,
   aws_lakeformation,
+  aws_s3,
   DefaultStackSynthesizer,
   Fn,
+  RemovalPolicy,
   Stack,
   StackProps,
 } from "aws-cdk-lib";
@@ -10,11 +11,13 @@ import { Construct } from "constructs";
 import { CustomAthenaPrimaryWorkGroup } from "./athena-primary-workgroup";
 
 interface LakeFormationProps extends StackProps {
+  s3LakeName: string;
   registerBucketData: string;
   queryResultLocation: string;
 }
 
 export class LakeFormationStack extends Stack {
+  public readonly s3Lake: aws_s3.Bucket;
   public readonly lakeCdkAmin: aws_lakeformation.CfnDataLakeSettings;
 
   constructor(scope: Construct, id: string, props: LakeFormationProps) {
@@ -36,6 +39,12 @@ export class LakeFormationStack extends Stack {
       }
     );
 
+    // create s3 lake
+    this.s3Lake = new aws_s3.Bucket(this, "S3LakeBucketDemo", {
+      bucketName: props.s3LakeName,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // lake formation register location (s3)
     const registerData = new aws_lakeformation.CfnResource(
       this,
@@ -47,12 +56,23 @@ export class LakeFormationStack extends Stack {
       }
     );
 
+    const registerDataS3Lake = new aws_lakeformation.CfnResource(
+      this,
+      "RegisterS3LakeToLakeFormation",
+      {
+        resourceArn: this.s3Lake.bucketArn,
+        // use AWSServiceRoleForLakeFormationDataAccess role
+        useServiceLinkedRole: true,
+      }
+    );
+
     // athena query result location via workgroup
     new CustomAthenaPrimaryWorkGroup(this, "CustomAthenaPrimaryWorkGroup-1", {
       queryResultLocation: props.queryResultLocation,
     });
 
     registerData.addDependency(this.lakeCdkAmin);
+    registerDataS3Lake.addDependency(this.lakeCdkAmin);
   }
 
   public grantGlueRole({
