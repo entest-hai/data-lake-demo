@@ -20,7 +20,7 @@ interface RdsPipelineProps extends StackProps {
   subnetId: string;
   databaseName: string;
   databasePath: string;
-  destBucket: string
+  destBucket: string;
 }
 
 export class RdsPipelineStack extends Stack {
@@ -50,11 +50,11 @@ export class RdsPipelineStack extends Stack {
 
     role.addToPolicy(
       new aws_iam.PolicyStatement({
-        effect: Effect.ALLOW, 
-        actions: ["s3:GetObject", "s3:PutObject"], 
-        resources: [`arn:aws:s3:::${props.destBucket}/*`]
+        effect: Effect.ALLOW,
+        actions: ["s3:GetObject", "s3:PutObject"],
+        resources: [`arn:aws:s3:::${props.destBucket}/*`],
       })
-    )
+    );
 
     role.addToPolicy(
       new aws_iam.PolicyStatement({
@@ -128,64 +128,71 @@ export class RdsPipelineStack extends Stack {
       description: "rds to lake demo",
     });
 
-    const startingTrigger = new aws_glue.CfnTrigger(this, "TriggerStartCrawRds", {
-      name: "TriggerStartCrawRds",
-      description: "trigger start craw rds",
-      actions: [
-        {
-          crawlerName: crawler.name,
-          timeout: 420,
-        },
-      ],
-      workflowName: workflow.name,
-      type: "ON_DEMAND",
-    });
-
-    const etlTrigger = new aws_glue.CfnTrigger(this, "TriggerTransformRdsTable", {
-      name: "TriggerTransformRdsTable",
-      description: "trigger transform rds table",
-      actions: [
-        {
-          jobName: job.name,
-          timeout: 420,
-        },
-      ],
-      workflowName: workflow.name,
-      type: "CONDITIONAL",
-      startOnCreation: true,
-      predicate: {
-        conditions: [
+    const startingTrigger = new aws_glue.CfnTrigger(
+      this,
+      "TriggerStartCrawRds",
+      {
+        name: "TriggerStartCrawRds",
+        description: "trigger start craw rds",
+        actions: [
           {
-            logicalOperator: "EQUALS",
-            crawlState: "SUCCEEDED",
             crawlerName: crawler.name,
+            timeout: 420,
           },
         ],
-      },
-    });
+        workflowName: workflow.name,
+        type: "ON_DEMAND",
+      }
+    );
 
-    etlScript.grantRead(role);
-
-    // grant data location permission 
-    new aws_lakeformation.CfnPrincipalPermissions(
-      this, 
-      `{props.name}-GrantLocationPermission`,
+    const etlTrigger = new aws_glue.CfnTrigger(
+      this,
+      "TriggerTransformRdsTable",
       {
-        permissions: ["DATA_LOCATION_ACCESS"], 
+        name: "TriggerTransformRdsTable",
+        description: "trigger transform rds table",
+        actions: [
+          {
+            jobName: job.name,
+            timeout: 420,
+          },
+        ],
+        workflowName: workflow.name,
+        type: "CONDITIONAL",
+        startOnCreation: true,
+        predicate: {
+          conditions: [
+            {
+              logicalOperator: "EQUALS",
+              crawlState: "SUCCEEDED",
+              crawlerName: crawler.name,
+            },
+          ],
+        },
+      }
+    );
+
+    // grant data location permission
+    const grant = new aws_lakeformation.CfnPrincipalPermissions(
+      this,
+      `GrantLocationPermission-${props.name}`,
+      {
+        permissions: ["DATA_LOCATION_ACCESS"],
         permissionsWithGrantOption: ["DATA_LOCATION_ACCESS"],
         principal: {
-          dataLakePrincipalIdentifier: role.roleArn
-        }, 
+          dataLakePrincipalIdentifier: role.roleArn,
+        },
         resource: {
           dataLocation: {
-            catalogId: this.account, 
-            resourceArn: `arn:aws:s3:::${props.destBucket}/*`
-          }
-        }
+            catalogId: this.account,
+            resourceArn: `arn:aws:s3:::${props.destBucket}`,
+          },
+        },
       }
-    )
+    );
 
-    startingTrigger.addDependency(workflow)
-    etlTrigger.addDependency(workflow)
+    startingTrigger.addDependency(workflow);
+    etlTrigger.addDependency(workflow);
+    grant.addDependency(role.node.defaultChild as aws_iam.CfnRole);
   }
 }
