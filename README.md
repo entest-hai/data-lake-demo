@@ -8,8 +8,6 @@ date: 2022-03-08
 
 ## Introduction
 
-## Introduction
-
 [Github](https://github.com/entest-hai/data-lake-demo) shows a simple data lake using serverless data processing tools like Glue, Athena, Redshift, SageMaker, etc. I does learn from this [aws sample repository](https://github.com/aws-samples/data-lake-as-code), while this is written in a software manner (wanted to be reusable and extensiable), but it is not easy to understand. So I would like to
 
 - Create a simple, easy to understand version
