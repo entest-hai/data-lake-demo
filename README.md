@@ -8,15 +8,21 @@ date: 2022-03-08
 
 ## Introduction
 
-This shows how to use lake formation to manage authorization to analyst and data pipeline.
+## Introduction
 
-- underlying access control
-- register data
-- data lake permissions
-- data location permissions
-- enroll a data analyst (read catalog and query)
-- enroll a data pipeline (write/create catalog)
-- [Github](https://github.com/entest-hai/data-lake-demo)
+[Github](https://github.com/entest-hai/data-lake-demo) shows a simple data lake using serverless data processing tools like Glue, Athena, Redshift, SageMaker, etc. I does learn from this [aws sample repository](https://github.com/aws-samples/data-lake-as-code), while this is written in a software manner (wanted to be reusable and extensiable), but it is not easy to understand. So I would like to
+
+- Create a simple, easy to understand version
+- Others can quickly learn, then build by themselve, not blindly clone a sample and run it
+- For learning purpose
+
+There are some key points
+
+- Lake Formation underlying access control, register data, grant lake permision, grant data location
+- Glue crawler and and Glue data catalog
+- Glue ETL job with Spark under the hood (Glue Dyanmic Data Frame)
+- Query with Athena and visualize with QuickSight
+- Redshift and SageMaker shown in another blogs
 
 ![lake](https://user-images.githubusercontent.com/20411077/226161551-dac182ff-4ee3-4c9c-8f8d-591834fcaeac.png)
 
