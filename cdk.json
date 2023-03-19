@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/data-lake-demo.ts",
+  "app": "npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts",
   "watch": {
     "include": [
       "**"

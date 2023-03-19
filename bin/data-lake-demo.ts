@@ -5,7 +5,7 @@ import { config } from "../config";
 import { S3PipelineStack } from "../lib/s3-pipeline-stack";
 import { RdsPipelineStack } from "../lib/rds-pipeline-stack";
 
-const region = "ap-southeast-2";
+const region = "us-east-1";
 
 const env = {
   region: region,
@@ -21,20 +21,20 @@ const lakeFormation = new LakeFormationStack(app, "LakeFormationStack", {
   env: env,
 });
 
-new DataAnalystStack(app, "DataAnalystStack", {
-  userName: config.dataAnalystName,
-  athenaResultBucketArn: config.athenaResultBucketArn,
-  env: env,
-});
-
-new DataAnalystStack(app, "DataScientistStack", {
-  userName: config.dataScientistName,
-  athenaResultBucketArn: config.athenaResultBucketArn,
-  env: env,
-});
+//new DataAnalystStack(app, "DataAnalystStack", {
+//  userName: config.dataAnalystName,
+//  athenaResultBucketArn: config.athenaResultBucketArn,
+//  env: env,
+//});
+//
+//new DataAnalystStack(app, "DataScientistStack", {
+//  userName: config.dataScientistName,
+//  athenaResultBucketArn: config.athenaResultBucketArn,
+//  env: env,
+//});
 
 // s3 data pipeline
-new S3PipelineStack(app, "S3DataPipelineStack", {
+const s3Pipeline = new S3PipelineStack(app, "S3DataPipelineStack", {
   pipelineName: "amazon_review",
   sourceBucket: config.amazonReview,
   lakeBucket: config.s3LakeName,
@@ -70,3 +70,6 @@ new RdsPipelineStack(app, "RdsPipelineStack", {
 //   databasePermissions: [DatabasePermission.All],
 //   databaseName: "default",
 // });
+
+
+s3Pipeline.addDependency(lakeFormation)

@@ -5,7 +5,7 @@ import {
   VpcNetworkStack,
 } from "../lib/vpc-rds-ec2-stack";
 
-const region = "ap-southeast-2";
+const region = "us-east-1";
 
 const app = new App();
 
