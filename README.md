@@ -18,6 +18,8 @@ This shows how to use lake formation to manage authorization to analyst and data
 - enroll a data pipeline (write/create catalog)
 - [Github](https://github.com/entest-hai/data-lake-demo)
 
+![lake](https://user-images.githubusercontent.com/20411077/226161551-dac182ff-4ee3-4c9c-8f8d-591834fcaeac.png)
+
 ## LakeFormation Access Control
 
 It is essential to understand how lakeformation control access to data analysts and ETL (glue role).
