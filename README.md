@@ -734,29 +734,53 @@ jdbc:protocol://host:port/database
 ```
 
 ## Deploy
+There are serveral stacks to deploy. First, check cdk synth  
 
-- deploy vpc, rds, and ec2 stacks
-- deploy lakeformation and s3 lake
-- deploy s3 data pipeline
-- deploy rds data pipeline
-- deploy data analyst and data scientist
-
-to deploy the vpc, rds, and ec2 writting data to rds, need to
-
-- check the cdk.json and update the following line
-
-```ts
- "app": "npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts"
+```bash 
+cdk bootstrap aws://115736523957/us-east-1
+cdk --app 'npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts' synth
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' synth
 ```
 
-- synth and deploy the vpc-rds-ec2-stack
-- then update the cdk.json to deploy lakeformation as below
+then deploy vpc, rds and an ec2 which write data to the rds 
 
-```ts
-"app": "npx ts-node --prefer-ts-exts bin/data-lake-demo.ts"
+```bash 
+cdk --app 'npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts' deploy --all 
 ```
 
-- finally can deploy lakeformation, data pipeline and data analyst
+then deploy the lakeformation, s3 lake, and and s3 pipeline 
+
+```bash 
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```
+
+then deploy and rds pipeline 
+
+```bash 
+update the config.ts to provide rds connection information 
+```
+
+```bash 
+update the bin/data-lake-demo.ts by uncomment rds pipeline
+```
+
+then deploy 
+
+```bash 
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```
+
+then deploy an data analyst 
+
+```bash 
+update bin/data-lake-demo.ts and uncomment a data analyst 
+```
+
+then deploy a data analyst
+
+```bash 
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```
 
 ## Reference
 
