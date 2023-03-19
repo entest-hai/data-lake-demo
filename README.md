@@ -733,6 +733,31 @@ securityGroupEc2.addIngressRule(
 jdbc:protocol://host:port/database
 ```
 
+## Deploy
+
+- deploy vpc, rds, and ec2 stacks
+- deploy lakeformation and s3 lake
+- deploy s3 data pipeline
+- deploy rds data pipeline
+- deploy data analyst and data scientist
+
+to deploy the vpc, rds, and ec2 writting data to rds, need to
+
+- check the cdk.json and update the following line
+
+```ts
+ "app": "npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts"
+```
+
+- synth and deploy the vpc-rds-ec2-stack
+- then update the cdk.json to deploy lakeformation as below
+
+```ts
+"app": "npx ts-node --prefer-ts-exts bin/data-lake-demo.ts"
+```
+
+- finally can deploy lakeformation, data pipeline and data analyst
+
 ## Reference
 
 - [underlying data access control in lake formation](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html#data-location-permissions)
