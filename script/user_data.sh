@@ -5,6 +5,11 @@ yum install unzip
 yum install -y mariadb
 wget https://downloads.mysql.com/docs/sakila-db.zip . 
 unzip sakila-db.zip
-cdk sakila-db 
-#mysql --host=$host --user=admin --password=$pass -f < sakila-db/sakila-schema.sql 
-#mysql --host=$host --user=admin --password=$pass -f < sakila-db/sakila-data.sql 
+cdk sakila-db
+touch run.sh 
+echo 'export host=' >> run.sh
+echo 'export user=demo' >> run.sh
+echo 'export password=' >> run.sh
+echo 'mysql --host=$host --user=$user --password=$password -f > sakila-schema.sql'
+echo 'mysql --host=$host --user=$user --password=$password -f > sakila-data.sql'
+chmod 700 run.sh 
