@@ -24,6 +24,11 @@ There are some key points
 - Query with Athena and visualize with QuickSight
 - Redshift and SageMaker shown in another blogs
 
+Please update, provide some parameters before deploy 
+- Provide parameters to config.ts  
+- Update lake bucket name in etl scripts 
+- Details in deploy section 
+
 ![lake](https://user-images.githubusercontent.com/20411077/226161551-dac182ff-4ee3-4c9c-8f8d-591834fcaeac.png)
 
 ## LakeFormation Access Control
@@ -752,7 +757,32 @@ securityGroupEc2.addIngressRule(
 jdbc:protocol://host:port/database
 ```
 
-## Deploy
+## Clone and Deploy
+
+Please create a config.ts file in the root project location and provide your inputs, some inputs are only avaiable after deploying vpc-rds-ec2 stack. 
+
+```ts 
+export const config = {
+  s3LakeName: "YOUR_LAKE_BUCKET_NAME",
+  queryResultLocation: "s3://YOUR-LAKE-BUCKET-NAME/query-result/",
+  athenaResultBucketArn:
+    "arn:aws:s3:::YOUR-LAKE-BUCKET-NAME/query-result/*",
+  dataAnalystArn: "arn:aws:iam::${YOUR-AWS-ACCOUNT-ID}:user/DataAnalyst",
+  dataScientistArn: "arn:aws:iam::${YOUR-AWS-ACCOUNT-ID}:user/DataScientist",
+  dataAnalystName: "DataAnalyst",
+  dataScientistName: "DataScientist",
+  jdbc: "jdbc:mysql://${RDS-ENDPOINT}:3306/demo",
+  username: "demo",
+  password: "${RDS-DB-PASSOWRD}",
+  securityGroupId: "${RDS-SECURITY-GROUP-ID}",
+  subnetId: "${RDS-SUBNET-ID}",
+  rdsAz: "${RDS-AVAIABLITY-ZONE}",
+  databaseName: "default",
+  databasePath: "sakila/actor",
+  destBucket: "YOUR-LAKE-BUCKET-NAME/rds-crawl",
+  amazonReview: "amazon-reviews-pds",
+};
+```
 
 There are serveral stacks to deploy. First, check cdk synth
 
