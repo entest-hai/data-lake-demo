@@ -12,7 +12,7 @@ import { CustomAthenaPrimaryWorkGroup } from "./athena-primary-workgroup";
 
 interface LakeFormationProps extends StackProps {
   s3LakeName: string;
-  registerBucketData: string;
+  registerBuckets: string[];
   queryResultLocation: string;
 }
 
@@ -45,22 +45,30 @@ export class LakeFormationStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const registerDataS3Lake = new aws_lakeformation.CfnResource(
-      this,
-      "RegisterS3LakeToLakeFormation",
-      {
-        resourceArn: `arn:aws:s3:::${props.registerBucketData}`,
-        // use AWSServiceRoleForLakeFormationDataAccess role
-        useServiceLinkedRole: true,
-      }
-    );
+    var registers: aws_lakeformation.CfnResource[] = [];
+
+    props.registerBuckets.map((bucket) => {
+      registers.push(
+        new aws_lakeformation.CfnResource(
+          this,
+          `RegsiterBucketToLake-${bucket}`,
+          {
+            resourceArn: `arn:aws:s3:::${bucket}`,
+            // use AWSServiceRoleForLakeFormationDataAccess role
+            useServiceLinkedRole: true,
+          }
+        )
+      );
+    });
 
     // athena query result location via workgroup
     new CustomAthenaPrimaryWorkGroup(this, "CustomAthenaPrimaryWorkGroup-1", {
       queryResultLocation: props.queryResultLocation,
     });
 
-    registerDataS3Lake.addDependency(this.lakeCdkAmin);
+    registers.map((register) => {
+      register.addDependency(this.lakeCdkAmin);
+    });
   }
 
   public grantGlueRole({

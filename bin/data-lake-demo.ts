@@ -7,34 +7,30 @@ import { RdsPipelineStack } from "../lib/rds-pipeline-stack";
 
 const region = "ap-southeast-2";
 
+const env = {
+  region: region,
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+};
+
 const app = new App();
 
 const lakeFormation = new LakeFormationStack(app, "LakeFormationStack", {
   s3LakeName: config.s3LakeName,
-  registerBucketData: config.s3LakeName,
+  registerBuckets: [config.s3LakeName, config.amazonReview],
   queryResultLocation: config.queryResultLocation,
-  env: {
-    region: region,
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
+  env: env,
 });
 
 new DataAnalystStack(app, "DataAnalystStack", {
   userName: config.dataAnalystName,
   athenaResultBucketArn: config.athenaResultBucketArn,
-  env: {
-    region: region,
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
+  env: env,
 });
 
 new DataAnalystStack(app, "DataScientistStack", {
   userName: config.dataScientistName,
   athenaResultBucketArn: config.athenaResultBucketArn,
-  env: {
-    region: region,
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
+  env: env,
 });
 
 // s3 data pipeline
@@ -44,10 +40,7 @@ new S3PipelineStack(app, "S3DataPipelineStack", {
   lakeBucket: config.s3LakeName,
   sourceBucketPrefixes: ["parquet"],
   lakeBucketPrefixes: ["amazon-review"],
-  env: {
-    region: region,
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
+  env: env,
 });
 
 // rds pipeline
@@ -62,10 +55,7 @@ new RdsPipelineStack(app, "RdsPipelineStack", {
   databaseName: config.databaseName,
   databasePath: config.databasePath,
   destBucket: config.destBucket,
-  env: {
-    region: region,
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
+  env: env,
 });
 
 // // grant data analyst
