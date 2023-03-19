@@ -476,6 +476,15 @@ const etlScript = new aws_s3_assets.Asset(this, "EtlScriptRdsToLakeDemo", {
 
 JDBC connection
 
+- please pay attention to the format of jdbc connection
+- please ensure the rds security group has a self-referencing
+
+```ts
+jdbc:protocol://host:port/database
+```
+
+then create a connection as below
+
 ```ts
 const connection = new aws_glue.CfnConnection(this, "RdsConnectionDemo", {
   catalogId: this.account,
@@ -484,7 +493,7 @@ const connection = new aws_glue.CfnConnection(this, "RdsConnectionDemo", {
     description: "connect to rds",
     name: "RdsConnectionDemo",
     connectionProperties: {
-      JDBC_CONNECTION_URL: "jdbc:mysql://host-database/table",
+      JDBC_CONNECTION_URL: "jdbc:mysql://host-database:port/database",
       USERNAME: "xxx",
       PASSWORD: "xxx",
     },

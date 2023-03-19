@@ -70,6 +70,13 @@ export class VpcNetworkStack extends Stack {
         vpc: vpc,
       }
     );
+
+    securityGroupEc2.addIngressRule(
+      securityGroupRds,
+      aws_ec2.Port.allTcp(),
+      "allow all its own"
+    );
+
     securityGroupRds.addIngressRule(
       aws_ec2.Peer.securityGroupId(securityGroupEc2.securityGroupId),
       aws_ec2.Port.tcp(3306),
