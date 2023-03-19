@@ -712,6 +712,27 @@ mysql --host=$host --user=$user --password=$password -f < sakila-data.sql
 }
 ```
 
+- RDS security group self-referencing
+
+```ts
+const securityGroupRds = new aws_ec2.SecurityGroup(this, "SecurityGroupRds", {
+  securityGroupName: "SecurityGroupRds",
+  vpc: vpc,
+});
+
+securityGroupEc2.addIngressRule(
+  securityGroupRds,
+  aws_ec2.Port.allTcp(),
+  "allow all its own"
+);
+```
+
+- JDBC connection format
+
+```ts
+jdbc:protocol://host:port/database
+```
+
 ## Reference
 
 - [underlying data access control in lake formation](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html#data-location-permissions)
