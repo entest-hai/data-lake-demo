@@ -43,6 +43,7 @@ export class LakeFormationStack extends Stack {
     this.s3Lake = new aws_s3.Bucket(this, "S3LakeBucketDemo", {
       bucketName: props.s3LakeName,
       removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true 
     });
 
     var registers: aws_lakeformation.CfnResource[] = [];
