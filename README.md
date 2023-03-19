@@ -672,6 +672,17 @@ mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql
 mysql --host=$host --user=$user --password=$password -f < sakila-data.sql
 ```
 
+## Visualization with Quicksight
+
+- go to quciksight console and create a new account
+- inside quicksight create a new dataset connecting to athena
+- then create a visualization analysis from there
+
+```bash
+quicksight: minh-tran
+
+```
+
 ## Troubleshooting
 
 - Cdk execution role must be admin first, the delay, then deploy next stacks
@@ -734,52 +745,53 @@ jdbc:protocol://host:port/database
 ```
 
 ## Deploy
-There are serveral stacks to deploy. First, check cdk synth  
 
-```bash 
+There are serveral stacks to deploy. First, check cdk synth
+
+```bash
 cdk bootstrap aws://115736523957/us-east-1
 cdk --app 'npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts' synth
 cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' synth
 ```
 
-then deploy vpc, rds and an ec2 which write data to the rds 
+then deploy vpc, rds and an ec2 which write data to the rds
 
-```bash 
-cdk --app 'npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts' deploy --all 
+```bash
+cdk --app 'npx ts-node --prefer-ts-exts bin/vpc-rds-ec2.ts' deploy --all
 ```
 
-then deploy the lakeformation, s3 lake, and and s3 pipeline 
+then deploy the lakeformation, s3 lake, and and s3 pipeline
 
-```bash 
-cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```bash
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all
 ```
 
-then deploy and rds pipeline 
+then deploy and rds pipeline
 
-```bash 
-update the config.ts to provide rds connection information 
+```bash
+update the config.ts to provide rds connection information
 ```
 
-```bash 
+```bash
 update the bin/data-lake-demo.ts by uncomment rds pipeline
 ```
 
-then deploy 
+then deploy
 
-```bash 
-cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```bash
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all
 ```
 
-then deploy an data analyst 
+then deploy an data analyst
 
-```bash 
-update bin/data-lake-demo.ts and uncomment a data analyst 
+```bash
+update bin/data-lake-demo.ts and uncomment a data analyst
 ```
 
 then deploy a data analyst
 
-```bash 
-cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all 
+```bash
+cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all
 ```
 
 ## Reference
