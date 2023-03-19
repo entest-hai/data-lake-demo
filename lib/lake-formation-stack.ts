@@ -45,22 +45,11 @@ export class LakeFormationStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // lake formation register location (s3)
-    const registerData = new aws_lakeformation.CfnResource(
-      this,
-      "RegisterDataLakeFormation",
-      {
-        resourceArn: props.registerBucketData,
-        // use AWSServiceRoleForLakeFormationDataAccess role
-        useServiceLinkedRole: true,
-      }
-    );
-
     const registerDataS3Lake = new aws_lakeformation.CfnResource(
       this,
       "RegisterS3LakeToLakeFormation",
       {
-        resourceArn: this.s3Lake.bucketArn,
+        resourceArn: `arn:aws:s3:::${props.registerBucketData}`,
         // use AWSServiceRoleForLakeFormationDataAccess role
         useServiceLinkedRole: true,
       }
@@ -71,7 +60,6 @@ export class LakeFormationStack extends Stack {
       queryResultLocation: props.queryResultLocation,
     });
 
-    registerData.addDependency(this.lakeCdkAmin);
     registerDataS3Lake.addDependency(this.lakeCdkAmin);
   }
 

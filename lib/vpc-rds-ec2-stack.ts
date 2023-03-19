@@ -2,10 +2,8 @@ import {
   aws_ec2,
   aws_iam,
   aws_rds,
-  aws_secretsmanager,
   Duration,
   RemovalPolicy,
-  SecretValue,
   Stack,
   StackProps,
 } from "aws-cdk-lib";
@@ -13,13 +11,83 @@ import { Construct } from "constructs";
 import * as fs from "fs";
 import * as path from "path";
 
+interface VpcProps extends StackProps {
+  cidr: string;
+  name: string;
+}
+
+export class VpcNetworkStack extends Stack {
+  public readonly vpc: aws_ec2.Vpc;
+  public readonly securityGroupEc2: aws_ec2.SecurityGroup;
+  public readonly securityGroupRds: aws_ec2.SecurityGroup;
+
+  constructor(scope: Construct, id: string, props: VpcProps) {
+    super(scope, id, props);
+
+    const vpc = new aws_ec2.Vpc(this, "VpcRdsEc2", {
+      vpcName: props.name,
+      maxAzs: 3,
+      enableDnsHostnames: true,
+      enableDnsSupport: true,
+      ipAddresses: aws_ec2.IpAddresses.cidr(props.cidr),
+      subnetConfiguration: [
+        {
+          name: "PublicSubnet",
+          cidrMask: 24,
+          subnetType: aws_ec2.SubnetType.PUBLIC,
+        },
+        {
+          name: "PrivateSubnet",
+          cidrMask: 24,
+          subnetType: aws_ec2.SubnetType.PRIVATE_ISOLATED,
+        },
+        {
+          name: "PrivateSubnetNat",
+          cidrMask: 24,
+          subnetType: aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        },
+      ],
+    });
+
+    vpc.addGatewayEndpoint("S3GatewayEndponit", {
+      service: aws_ec2.GatewayVpcEndpointAwsService.S3,
+    });
+
+    const securityGroupEc2 = new aws_ec2.SecurityGroup(
+      this,
+      "SecurityGroupEc2",
+      {
+        securityGroupName: "SecurityGroupEc2",
+        vpc: vpc,
+      }
+    );
+
+    const securityGroupRds = new aws_ec2.SecurityGroup(
+      this,
+      "SecurityGroupRds",
+      {
+        securityGroupName: "SecurityGroupRds",
+        vpc: vpc,
+      }
+    );
+    securityGroupRds.addIngressRule(
+      aws_ec2.Peer.securityGroupId(securityGroupEc2.securityGroupId),
+      aws_ec2.Port.tcp(3306),
+      "allow ec2 connect to rds on 3306"
+    );
+
+    this.vpc = vpc;
+    this.securityGroupEc2 = securityGroupEc2;
+    this.securityGroupRds = securityGroupRds;
+  }
+}
+
 interface Ec2Props extends StackProps {
-  vpcId: string;
+  vpc: aws_ec2.Vpc;
+  securityGroup: aws_ec2.SecurityGroup;
 }
 
 export class Ec2Stack extends Stack {
-  public readonly ec2SecurityGroup: string;
-
   constructor(scope: Construct, id: string, props: Ec2Props) {
     super(scope, id, props);
 
@@ -34,16 +102,6 @@ export class Ec2Stack extends Stack {
       )
     );
 
-    const vpc = aws_ec2.Vpc.fromLookup(this, "LookUpExistingVpc", {
-      vpcId: props.vpcId,
-      vpcName: "DevDemo",
-    });
-
-    const sg = new aws_ec2.SecurityGroup(this, "SecurityGroupForEc2WriteDb", {
-      securityGroupName: "SecurityGroupForEc2WriteDb",
-      vpc: vpc,
-    });
-
     const ec2 = new aws_ec2.Instance(this, "Ec2WriteDb", {
       instanceName: "Ec2WriteDb",
       instanceType: aws_ec2.InstanceType.of(
@@ -55,9 +113,9 @@ export class Ec2Stack extends Stack {
         edition: aws_ec2.AmazonLinuxEdition.STANDARD,
         storage: aws_ec2.AmazonLinuxStorage.GENERAL_PURPOSE,
       }),
-      vpc: vpc,
+      vpc: props.vpc,
       role: role,
-      securityGroup: sg,
+      securityGroup: props.securityGroup,
       vpcSubnets: {
         subnetType: aws_ec2.SubnetType.PUBLIC,
       },
@@ -68,38 +126,17 @@ export class Ec2Stack extends Stack {
         encoding: "utf-8",
       })
     );
-
-    this.ec2SecurityGroup = sg.securityGroupId;
   }
 }
 
 interface RdsProps extends StackProps {
-  vpcId: string;
-  securityGroupEc2: string;
+  vpc: aws_ec2.Vpc;
+  securityGroup: aws_ec2.SecurityGroup;
 }
 
 export class RdsDbInstanceStack extends Stack {
   constructor(scope: Construct, id: string, props: RdsProps) {
     super(scope, id, props);
-
-    const vpc = aws_ec2.Vpc.fromLookup(this, "LookUpExistingVpc", {
-      vpcId: props.vpcId,
-      vpcName: "DevDemo",
-    });
-
-    const dbSecurityGroup = new aws_ec2.SecurityGroup(
-      this,
-      "SecurityGroupForDbLakeDemo",
-      {
-        securityGroupName: "SecurityGroupForDbLakeDemo",
-        vpc: vpc,
-      }
-    );
-
-    dbSecurityGroup.addIngressRule(
-      aws_ec2.Peer.securityGroupId(props.securityGroupEc2),
-      aws_ec2.Port.tcp(3306)
-    );
 
     new aws_rds.DatabaseInstance(this, "RdsDatabaseInstanceLakeDemo", {
       instanceIdentifier: "lakedemo",
@@ -108,7 +145,7 @@ export class RdsDbInstanceStack extends Stack {
       engine: aws_rds.DatabaseInstanceEngine.mysql({
         version: aws_rds.MysqlEngineVersion.VER_8_0_23,
       }),
-      vpc,
+      vpc: props.vpc,
       multiAz: false,
       port: 3306,
       instanceType: aws_ec2.InstanceType.of(
@@ -128,7 +165,7 @@ export class RdsDbInstanceStack extends Stack {
       autoMinorVersionUpgrade: false,
       iamAuthentication: false,
       removalPolicy: RemovalPolicy.DESTROY,
-      securityGroups: [dbSecurityGroup],
+      securityGroups: [props.securityGroup],
       vpcSubnets: {
         subnetType: aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
