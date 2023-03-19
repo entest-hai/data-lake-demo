@@ -660,7 +660,7 @@ export user="demo"
 export password=""
 mysql --host=$host --user=$user --password=$password
 mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql
-mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql
+mysql --host=$host --user=$user --password=$password -f < sakila-data.sql
 ```
 
 ## Troubleshooting
