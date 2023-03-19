@@ -654,8 +654,13 @@ load sakila data into the database
 
 ```bash
 cdk sakila-db
-mysql --host=$host --username=admin --password=$pass -f < sakila-schema.sql
-mysql --host=$host --username=admin --password=$pass -f < sakila-data.sql
+export host=""
+export port=3306
+export user="demo"
+export password=""
+mysql --host=$host --user=$user --password=$password
+mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql
+mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql
 ```
 
 ## Troubleshooting
