@@ -22,10 +22,11 @@ There are some key points
 - Query with Athena and visualize with QuickSight
 - Redshift and SageMaker shown in another blogs
 
-Please update, provide some parameters before deploy 
-- Provide parameters to config.ts  
-- Update lake bucket name in etl scripts 
-- Details in deploy section 
+Please update, provide some parameters before deploy
+
+- Provide parameters to config.ts
+- Update lake bucket name in etl scripts
+- Details in deploy section
 
 ![lake](https://user-images.githubusercontent.com/20411077/226161551-dac182ff-4ee3-4c9c-8f8d-591834fcaeac.png)
 
@@ -83,28 +84,22 @@ new aws_lakeformation.CfnResource(this, "RegisterDataLakeFormation", {
 - attach an inline policy allow writing query result to s3
 
 ```ts
-const daUser = new aws_iam.User(this, `${props.userName}-IAMUser`, {
-  userName: props.userName,
-  password: aws_secretsmanager.Secret.fromSecretNameV2(
-    this,
-    `${props.userName}-password`,
-    "DataAnalystDemoPassword"
-  ).secretValueFromJson("DataAnalystDemoPassword"),
-  passwordResetRequired: false,
+const secret = new aws_secretsmanager.Secret(this, `${props.userName}Secret`, {
+  secretName: `${props.userName}Secret`,
+  generateSecretString: {
+    secretStringTemplate: JSON.stringify({ username: props.userName }),
+    generateStringKey: "password",
+  },
 });
 
-daUser.addManagedPolicy(
-  aws_iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonAthenaFullAccess")
-);
-
-// access athena result query in s3
-daUser.addToPolicy(
-  new aws_iam.PolicyStatement({
-    effect: Effect.ALLOW,
-    actions: ["s3:PutObject", "s3:GetObject"],
-    resources: [props.athenaResultBucketArn],
-  })
-);
+// create an iam user for data analyst (da)
+const daUser = new aws_iam.User(this, `${props.userName}IAMUser`, {
+  userName: props.userName,
+  // password: SecretValue.unsafePlainText("Demo#2023"),
+  // password: SecretValue.secretsManager(secret.secretName),
+  password: secret.secretValueFromJson("password"),
+  passwordResetRequired: false,
+});
 ```
 
 ## Grant Database Permissions
@@ -757,14 +752,13 @@ jdbc:protocol://host:port/database
 
 ## Clone and Deploy
 
-Please create a config.ts file in the root project location and provide your inputs, some inputs are only avaiable after deploying vpc-rds-ec2 stack. 
+Please create a config.ts file in the root project location and provide your inputs, some inputs are only avaiable after deploying vpc-rds-ec2 stack.
 
-```ts 
+```ts
 export const config = {
   s3LakeName: "YOUR_LAKE_BUCKET_NAME",
   queryResultLocation: "s3://YOUR-LAKE-BUCKET-NAME/query-result/",
-  athenaResultBucketArn:
-    "arn:aws:s3:::YOUR-LAKE-BUCKET-NAME/query-result/*",
+  athenaResultBucketArn: "arn:aws:s3:::YOUR-LAKE-BUCKET-NAME/query-result/*",
   dataAnalystArn: "arn:aws:iam::${YOUR-AWS-ACCOUNT-ID}:user/DataAnalyst",
   dataScientistArn: "arn:aws:iam::${YOUR-AWS-ACCOUNT-ID}:user/DataScientist",
   dataAnalystName: "DataAnalyst",
