@@ -10,6 +10,6 @@ touch run.sh
 echo 'export host=' >> run.sh
 echo 'export user=demo' >> run.sh
 echo 'export password=' >> run.sh
-echo 'mysql --host=$host --user=$user --password=$password -f > sakila-schema.sql' >> run.sh 
-echo 'mysql --host=$host --user=$user --password=$password -f > sakila-data.sql' >> run.sh 
+echo 'mysql --host=$host --user=$user --password=$password -f < sakila-schema.sql' >> run.sh 
+echo 'mysql --host=$host --user=$user --password=$password -f < sakila-data.sql' >> run.sh 
 chmod 700 run.sh 
