@@ -102,6 +102,31 @@ const daUser = new aws_iam.User(this, `${props.userName}IAMUser`, {
 });
 ```
 
+attach policy to access athena and quicksight
+
+```ts
+daUser.addManagedPolicy(
+  aws_iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonAthenaFullAccess")
+);
+
+// access athena result query in s3
+daUser.addToPolicy(
+  new aws_iam.PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ["s3:*"],
+    resources: [props.athenaResultBucketArn],
+  })
+);
+
+daUser.addToPolicy(
+  new aws_iam.PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ["quicksight:*"],
+    resources: ["*"],
+  })
+);
+```
+
 ## Grant Database Permissions
 
 - grant an iam user (DA) to access database, table
@@ -405,28 +430,6 @@ const triggerTransformedCrawler = new aws_glue.CfnTrigger(
     },
   }
 );
-```
-
-## Athena Workgroup
-
-It is possible to use workgroup to set up the same athena query result for all users.
-
-[here](https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings.html)
-
-## Secrete Manager
-
-How to use secret manager in CDK to create password for an IAM user.
-
-```ts
-const daUser = new aws_iam.User(this, "DataAnalystUserDemo", {
-  userName: "DataAnalyst",
-  password: aws_secretsmanager.Secret.fromSecretNameV2(
-    this,
-    "DataAnalystDemoPassword",
-    "DataAnalystDemoPassword"
-  ).secretValueFromJson("DataAnalystDemoPassword"),
-  passwordResetRequired: false,
-});
 ```
 
 ## ETL Pipeline RDS to Lake
