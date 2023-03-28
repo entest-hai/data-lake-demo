@@ -16,6 +16,7 @@ date: 2022-03-08
 
 There are some key points
 
+- Add cdk exec role and iam user to be an admin in lake formation 
 - Lake Formation underlying access control, register data, grant lake permision, grant data location
 - Glue crawler and and Glue data catalog
 - Glue ETL job with Spark under the hood (Glue Dyanmic Data Frame)
@@ -836,3 +837,8 @@ cdk --app 'npx ts-node --prefer-ts-exts bin/data-lake-demo.ts' deploy --all
 - [AWSServiceRoleForLakeFormationDataAccess](https://docs.aws.amazon.com/lake-formation/latest/dg/service-linked-roles.html)
 
 - [lakeformation:GetDataAccess](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html#data-location-permissions)
+
+
+## Troubleshooting 
+
+- Please check cdk exc role and iam admin user is admin in lake formation 
