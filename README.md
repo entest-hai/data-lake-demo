@@ -836,6 +836,7 @@ check size of data
 
 ```bash
 aws s3 ls --summarize --human-readable --recursive s3://amazon-reviews-pds/parquet/
+aws s3 ls --summarize --human-readable --recursive s3://amazon-reviews-pds/tsv/
 aws s3 ls --summarize --human-readable --recursive s3://gdelt-open-data/events/
 ```
 
@@ -846,6 +847,54 @@ select marketplace,
 	sum(total_votes) as sumvotes,
 	product_title
 from amazon_review_parquet
+group by marketplace,
+	product_title
+order by sumvotes desc;
+```
+
+check amazon-review-pds tsv format
+
+```sql
+CREATE EXTERNAL TABLE amazon_reviews_tsv(
+  marketplace string,
+  customer_id string,
+  review_id string,
+  product_id string,
+  product_parent string,
+  product_title string,
+  product_category string,
+  star_rating int,
+  helpful_votes int,
+  total_votes int,
+  vine string,
+  verified_purchase string,
+  review_headline string,
+  review_body string,
+  review_date date)
+ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY '\t'
+  ESCAPED BY '\\'
+  LINES TERMINATED BY '\n'
+LOCATION
+  's3://amazon-reviews-pds/tsv/'
+TBLPROPERTIES ("skip.header.line.count"="1");
+```
+
+preview the data
+
+```sql
+SELECT * FROM "amazon_reviews_tsv"
+WHERE marketplace = 'US'
+limit 10;
+```
+
+also check a slow query to compare performance and scanned data with parquet. TSV takes 32GB scanned.
+
+```sql
+select marketplace,
+	sum(total_votes) as sumvotes,
+	product_title
+from amazon_reviews_tsv
 group by marketplace,
 	product_title
 order by sumvotes desc;
@@ -863,6 +912,12 @@ order by sumvotes desc;
 
 - [lakeformation:GetDataAccess](https://docs.aws.amazon.com/lake-formation/latest/dg/access-control-underlying-data.html#data-location-permissions)
 
+- [Athena exploration](https://github.com/dacort/demo-code/blob/main/athena/Athena_Exploration.md)
+
+- [Athena and NOAA dataset](https://repost.aws/knowledge-center/set-file-number-size-ctas-athena)
+
 ## Troubleshooting
 
 - Please check cdk exc role and iam admin user is admin in lake formation
+- Add your admin IAM user to lake admin to see things
+- Create a default database in catalog before deploying DA and DS stacks
