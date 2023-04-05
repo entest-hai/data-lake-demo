@@ -4,6 +4,8 @@ import { LakeFormationStack } from "../lib/lake-formation-stack";
 import { config } from "../config";
 import { S3PipelineStack } from "../lib/s3-pipeline-stack";
 import { RdsPipelineStack } from "../lib/rds-pipeline-stack";
+import { DatabasePermission } from "../lib/permission-type";
+import { S3PipelineTsvStack } from "../lib/s3-pipline-tsv-stack";
 
 const region = "us-east-1";
 
@@ -21,18 +23,6 @@ const lakeFormation = new LakeFormationStack(app, "LakeFormationStack", {
   env: env,
 });
 
-//new DataAnalystStack(app, "DataAnalystStack", {
-//  userName: config.dataAnalystName,
-//  athenaResultBucketArn: config.athenaResultBucketArn,
-//  env: env,
-//});
-//
-//new DataAnalystStack(app, "DataScientistStack", {
-//  userName: config.dataScientistName,
-//  athenaResultBucketArn: config.athenaResultBucketArn,
-//  env: env,
-//});
-
 // s3 data pipeline
 const s3Pipeline = new S3PipelineStack(app, "S3DataPipelineStack", {
   pipelineName: "amazon_review",
@@ -43,8 +33,18 @@ const s3Pipeline = new S3PipelineStack(app, "S3DataPipelineStack", {
   env: env,
 });
 
+// s3 tsv data pipeline
+const s3PipelineTsv = new S3PipelineTsvStack(app, "S3DataPipelineTsvStack", {
+  pipelineName: "amazon_review_tsv",
+  sourceBucket: config.amazonReview,
+  lakeBucket: config.s3LakeName,
+  sourceBucketPrefixes: ["tsv"],
+  lakeBucketPrefixes: ["amazon-review-tsv-parquet"],
+  env: env,
+});
+
 // rds pipeline
-new RdsPipelineStack(app, "RdsPipelineStack", {
+const rdsPipeline = new RdsPipelineStack(app, "RdsPipelineStack", {
   name: "RDS",
   jdbc: config.jdbc,
   username: config.username,
@@ -58,18 +58,24 @@ new RdsPipelineStack(app, "RdsPipelineStack", {
   env: env,
 });
 
-// // grant data analyst
-// lakeFormation.grantDataAnalyst({
-//   userArn: config.dataAnalystArn,
-//   databasePermissions: [DatabasePermission.All],
-//   databaseName: "default",
-// });
+const da = new DataAnalystStack(app, "DataAnalystStack", {
+  userName: config.dataAnalystName,
+  athenaResultBucketArn: config.athenaResultBucketArn,
+  databaseName: "default",
+  databasePermissions: [DatabasePermission.All],
+  env: env,
+});
 
-// lakeFormation.grantDataAnalyst({
-//   userArn: config.dataScientistArn,
-//   databasePermissions: [DatabasePermission.All],
-//   databaseName: "default",
-// });
+const ds = new DataAnalystStack(app, "DataScientistStack", {
+  userName: config.dataScientistName,
+  athenaResultBucketArn: config.athenaResultBucketArn,
+  databaseName: "default",
+  databasePermissions: [DatabasePermission.All],
+  env: env,
+});
 
-
-s3Pipeline.addDependency(lakeFormation)
+s3Pipeline.addDependency(lakeFormation);
+s3PipelineTsv.addDependency(lakeFormation);
+rdsPipeline.addDependency(lakeFormation);
+da.addDependency(lakeFormation);
+ds.addDependency(lakeFormation);
