@@ -839,7 +839,7 @@ aws s3 ls --summarize --human-readable --recursive s3://amazon-reviews-pds/parqu
 aws s3 ls --summarize --human-readable --recursive s3://gdelt-open-data/events/
 ```
 
-query
+query and compare size, performance between parquet and tsv data
 
 ```sql
 select marketplace,
