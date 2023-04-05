@@ -880,6 +880,16 @@ LOCATION
 TBLPROPERTIES ("skip.header.line.count"="1");
 ```
 
+classifier
+
+```bash
+STRING,STRING,STRING,STRING,STRING,STRING,STRING,INT,INT,INT,STRING,STRING,STRING,STRING,DATE
+```
+
+```bash
+marketplace, customer_id, review_id, product_id, product_parent, product_title, product_catagory, star_rating, helpful_votes, total_votes, vine, verified_purchase, review_headline, review_body, review_date
+```
+
 preview the data
 
 ```sql
@@ -898,6 +908,19 @@ from amazon_reviews_tsv
 group by marketplace,
 	product_title
 order by sumvotes desc;
+```
+
+## Amazon TSV to Lake
+
+Manually add a pipeline which copy and transform amazon-review-pds/tsv/ to lake, save into parquet format
+
+- Update the Glue role policy with permission to write to lake-bucket/crawl-amazon-review-test
+- Update LakeFormation location so the Glue role can create table in catalog
+- Try to convert string to int
+- Crawl the copied data again and query
+
+```sql
+
 ```
 
 ## Reference
