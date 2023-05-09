@@ -81,8 +81,9 @@ new aws_lakeformation.CfnResource(this, "RegisterDataLakeFormation", {
 ## Create Data Analyst User
 
 - create an IAM user for a data analyst
-- attach AmazonAthenaFullAccess role the DA
+- attach AmazonAthenaFullAccess role the DA => update coarse permissions
 - attach an inline policy allow writing query result to s3
+- lakeformation to fine control access
 
 ```ts
 const secret = new aws_secretsmanager.Secret(this, `${props.userName}Secret`, {
@@ -125,6 +126,28 @@ daUser.addToPolicy(
     actions: ["quicksight:*"],
     resources: ["*"],
   })
+);
+```
+
+LakeFormation grant access to the DA
+
+```ts
+const permission = new aws_lakeformation.CfnPrincipalPermissions(
+  this,
+  `${props.userName}-ReadTableLake`,
+  {
+    permissions: props.databasePermissions,
+    permissionsWithGrantOption: props.databasePermissions,
+    principal: {
+      dataLakePrincipalIdentifier: daUser.userArn,
+    },
+    resource: {
+      database: {
+        catalogId: this.account,
+        name: props.databaseName,
+      },
+    },
+  }
 );
 ```
 

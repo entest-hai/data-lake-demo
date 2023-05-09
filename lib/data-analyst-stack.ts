@@ -1,7 +1,7 @@
 import {
   aws_iam,
+  aws_lakeformation,
   aws_secretsmanager,
-  SecretValue,
   Stack,
   StackProps,
 } from "aws-cdk-lib";
@@ -11,6 +11,8 @@ import { Construct } from "constructs";
 interface DataAnalystProps extends StackProps {
   userName: string;
   athenaResultBucketArn: string;
+  databaseName: string 
+  databasePermissions: string[]
 }
 
 export class DataAnalystStack extends Stack {
@@ -62,6 +64,26 @@ export class DataAnalystStack extends Stack {
         resources: ["*"],
       })
     );
+
+    const permission = new aws_lakeformation.CfnPrincipalPermissions(
+      this,
+      `${props.userName}-ReadTableLake`,
+      {
+        permissions: props.databasePermissions,
+        permissionsWithGrantOption: props.databasePermissions,
+        principal: {
+          dataLakePrincipalIdentifier: daUser.userArn,
+        },
+        resource: {
+          database: {
+            catalogId: this.account,
+            name: props.databaseName,
+          },
+        },
+      }
+    );
+
+    permission.addDependency(daUser.node.defaultChild as aws_iam.CfnUser)
 
     // setting result query S3 prefix
     this.userArn = this.userArn;
