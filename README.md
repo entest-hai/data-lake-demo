@@ -967,3 +967,9 @@ Manually add a pipeline which copy and transform amazon-review-pds/tsv/ to lake,
 - Please check cdk exc role and iam admin user is admin in lake formation
 - Add your admin IAM user to lake admin to see things
 - Create a default database in catalog before deploying DA and DS stacks
+
+- Check supported MySQL Version per region [docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/MySQL.Concepts.VersionMgmt.html)
+
+```bash
+aws rds describe-db-engine-versions --engine mysql --query "*[].{Engine:Engine,EngineVersion:EngineVersion}" --output text
+```
